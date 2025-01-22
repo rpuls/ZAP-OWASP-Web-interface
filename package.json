@@ -1,0 +1,18 @@
+{
+  "name": "zap-owasp-web-interface",
+  "description": "Web Interface for zaproxy OWASP scanner",
+  "author": "Rasmus Puls",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@8.15.1",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r run dev",
+    "build": "pnpm run build:frontend && pnpm run build:backend",
+    "build:frontend": "pnpm --filter frontend run build",
+    "build:backend": "pnpm --filter backend run build",
+    "start": "node backend/dist/server.js"
+  }
+}
