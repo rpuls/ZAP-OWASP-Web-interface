@@ -86,10 +86,6 @@ export function ScanForm() {
             disabled={isStarting}
           />
           
-          <Text size="sm" c="dimmed" fw={500}>
-            ⚠️ Memory Requirements: The ZAP docker container needs at least 2GB of RAM. 
-          </Text>
-          
           <Button
             type="submit"
             loading={isStarting}
@@ -107,11 +103,16 @@ export function ScanForm() {
           {scanStatus && (
             <>
               {scanStatus.error || isProgressStalled ? (
-                <Text color="red" fw={500}>
-                  {scanStatus.error ? scanStatus.error.message : 
-                    "The scan is taking longer than usual. This could indicate that your ZAP service is exceeding its memory limitation. " +
-                    "Please check the server logs of your ZAP instance. At least 2GB of RAM is required to crawl and scan larger sites."}
-                </Text>
+                <>
+                  <Text color="red" fw={500}>
+                    {scanStatus.error ? scanStatus.error.message : 
+                      "The scan is taking longer than usual."}
+                  </Text>
+                  <Text size="sm" c="dimmed">
+                    This typically happens when the ZAP service runs out of memory. Please check the server logs of your ZAP instance. 
+                    At least 2GB of RAM is required to crawl and scan larger sites.
+                  </Text>
+                </>
               ) : (
                 <>
                   <Text size="sm" fw={500}>
@@ -142,6 +143,10 @@ export function ScanForm() {
               )}
             </>
           )}
+
+          <Text size="xs" c="dimmed" ta="center">
+            Please make sure your ZAP service has {'>'}2GB of RAM
+          </Text>
         </Stack>
       </form>
     </Paper>
