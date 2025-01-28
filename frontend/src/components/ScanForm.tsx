@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { TextInput, Button, Paper, Progress, Text, Stack, rem, Divider } from '@mantine/core';
 import { AlertList } from './AlertList';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -18,10 +18,19 @@ export function ScanForm() {
     },
     onError: (error) => {
       console.error('Failed to start scan:', error);
+      // Show error with memory guidance in UI
+      setError(
+        "Failed to start scan. This commonly occurs when the ZAP service runs out of memory. " +
+        "Please ensure your ZAP container has at least 2GB of RAM available."
+      );
     },
   });
 
   const [isComplete, setIsComplete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastProgress, setLastProgress] = useState<number | null>(null);
+  const [lastProgressTime, setLastProgressTime] = useState<number | null>(null);
+  const TIMEOUT_THRESHOLD = 30000; // 30 seconds
 
   const { data: scanStatus } = useQuery({
     queryKey: ['scanStatus', uuid],
@@ -31,15 +40,31 @@ export function ScanForm() {
       query.state.data?.error || query.state.data?.isComplete ? false : 1000
   });
 
-  // Update completion state when scan is complete
+  // Track progress updates and completion state
   useEffect(() => {
-    if (scanStatus?.isComplete && !isComplete) {
+    if (!scanStatus) return;
+
+    if (scanStatus.isComplete && !isComplete) {
       setIsComplete(true);
+      return;
     }
-  }, [scanStatus?.isComplete, isComplete]);
+
+    // Update progress tracking
+    if (scanStatus.status !== lastProgress) {
+      setLastProgress(scanStatus.status);
+      setLastProgressTime(Date.now());
+    }
+  }, [scanStatus, lastProgress, isComplete]);
+
+  // Check if progress is stalled
+  const isProgressStalled = useMemo(() => {
+    if (!lastProgressTime || !scanStatus || scanStatus.isComplete || scanStatus.error) return false;
+    return Date.now() - lastProgressTime > TIMEOUT_THRESHOLD;
+  }, [lastProgressTime, scanStatus]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null); // Clear any previous errors
     if (url) {
       startScanMutation(url);
     }
@@ -61,6 +86,10 @@ export function ScanForm() {
             disabled={isStarting}
           />
           
+          <Text size="sm" c="dimmed" fw={500}>
+            ⚠️ Memory Requirements: The ZAP docker container needs at least 2GB of RAM. 
+          </Text>
+          
           <Button
             type="submit"
             loading={isStarting}
@@ -69,11 +98,19 @@ export function ScanForm() {
             {isStarting ? 'Starting Scan...' : 'Start Scan'}
           </Button>
 
+          {error && (
+            <Text color="red" fw={500}>
+              {error}
+            </Text>
+          )}
+
           {scanStatus && (
             <>
-              {scanStatus.error ? (
+              {scanStatus.error || isProgressStalled ? (
                 <Text color="red" fw={500}>
-                  {scanStatus.error.message}
+                  {scanStatus.error ? scanStatus.error.message : 
+                    "The scan is taking longer than usual. This could indicate that your ZAP service is exceeding its memory limitation. " +
+                    "Please check the server logs of your ZAP instance. At least 2GB of RAM is required to crawl and scan larger sites."}
                 </Text>
               ) : (
                 <>

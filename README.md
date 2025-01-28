@@ -24,6 +24,12 @@
 ## About this boilerplate
 This repository provides a lightweight Node.js application with a modern web interface for interacting with the [ZAPROXY](https://www.zaproxy.org/) API. Simply launch the app, enter the URL of the website you want to scan for vulnerabilities, and click the Start Scan button. Once the scan is complete, you can view the results directly in the web interface or download a detailed PDF report.
 
+⚠️ **Important Memory Requirements**:
+- The ZAP service requires **at least 2GB of RAM** to function properly, especially for scanning larger sites
+- Railway's free tier (500MB) is not sufficient for most scans
+- For production use, consider upgrading to Railway's Hobby or Pro plan
+- Memory usage increases with site complexity and depth of scanning
+
 Regular OWASP scans are essential for maintaining robust web security, especially for organizations aiming to comply with standards like ISO27001 or similar certifications.
 
 ### Why run in the cloud?
@@ -35,7 +41,13 @@ Use one-click deploy template:
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.com/template/dCh187?referralCode=-Yg50p)
 
-This template automatically launches the required [ZAP docker container](https://hub.docker.com/r/zaproxy/zap-weekly), then builds the web interface and connect it to the API, so you don't have to do anything.
+This template automatically launches the required [ZAP docker container](https://hub.docker.com/r/zaproxy/zap-weekly), then builds the web interface and connect it to the API, so you don't have to do anything. But, note that the ZAP service is memory-intensive - ensure your deployment environment has sufficient resources (minimum 2GB RAM) for reliable scanning, but for larger scans more memory might be required.
+
+### System Requirements
+
+- **Memory**: Minimum 2GB RAM for the ZAP service
+- **Platform**: Any system capable of running Docker containers
+- **Network**: Stable internet connection for scanning external sites
 
 ### Preconfigured Features & Integrations
 
@@ -120,43 +132,61 @@ The application will use:
 
 #### Start a new scan:
 `POST /api/v1/scans`
-```
+
+Request:
+```json
 {
   "url": "https://example.com"
 }
 ```
 
-
-#### Get scan status and results:
-`GET /api/v1/scans/:scanId`
-
-```
+Response:
+```json
 {
-  "scanId": "...",
-  "status": number,
-  "isComplete": boolean,
-  "results": [
-  {
-    "name": "...",
-    "risk": "High|Medium|Low|Informational",
-    "description": "...",
-    "solution": "...",
-    "reference": "...",
-    "url": "..."
-    }
-  ]
+  "uuid": "...",
+  "status": "started",
+  "url": "https://example.com"
 }
 ```
 
+#### Get scan status and results:
+`GET /api/v1/scans/:uuid`
+
+Response:
+```json
+{
+  "uuid": "...",
+  "status": number, // 0 for spider scanning, 1-100 for active scanning progress
+  "isComplete": boolean,
+  "results": [
+    {
+      "name": "...",
+      "risk": "High|Medium|Low|Informational",
+      "description": "...",
+      "solution": "...",
+      "reference": "...",
+      "url": "..."
+    }
+  ],
+  "error": {  // Only present if there's an error
+    "message": "...",
+    "code": "...",
+    "details": "..."
+  }
+}
+```
 
 #### Generate PDF report:
 `POST /api/v1/reports/generate`
 
-```
+Request:
+```json
 {
-  "scanId": "12"
+  "uuid": "..." // UUID of the scan
 }
 ```
+
+Response: Binary PDF file with proper Content-Disposition header for download.
 
 <p align="center">
   <a href="https://funkyton.com/">
