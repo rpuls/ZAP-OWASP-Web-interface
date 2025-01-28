@@ -4,13 +4,13 @@ import axios from 'axios';
 const API_URL = '/api/v1';
 
 export interface ScanResponse {
-  scanId: string;
+  uuid: string;
   status: string;
   url: string;
 }
 
 export interface ScanStatus {
-  scanId: string;
+  uuid: string;
   status: number | null;
   isComplete: boolean;
   results: any[] | null;
@@ -26,15 +26,15 @@ export async function startScan(url: string): Promise<ScanResponse> {
   return response.data;
 }
 
-export async function getScanStatus(scanId: string): Promise<ScanStatus> {
-  const response = await axios.get(`${API_URL}/scans/${scanId}`);
+export async function getScanStatus(uuid: string): Promise<ScanStatus> {
+  const response = await axios.get(`${API_URL}/scans/${uuid}`);
   return response.data;
 }
 
-export async function generateReport(scanId: string): Promise<void> {
+export async function generateReport(uuid: string): Promise<void> {
   const response = await axios.post(
     `${API_URL}/reports/generate`,
-    { scanId },
+    { uuid },
     { responseType: 'blob' }
   );
   

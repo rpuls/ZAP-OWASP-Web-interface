@@ -9,29 +9,34 @@ const router = Router();
 
 interface GenerateReportRequest extends Request {
   body: {
-    scanId: string;
+    uuid: string;
   };
 }
 
 // POST /api/v1/reports/generate
 router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
   try {
-    const { scanId } = req.body;
+    const { uuid } = req.body;
 
-    if (!scanId) {
-      return res.status(400).json({ error: 'Missing scanId' });
+    if (!uuid) {
+      return res.status(400).json({ error: 'Missing uuid' });
     }
 
     // Get scan metadata from cache
-    const scanMetadata = scanCache.getScanMetadata(scanId);
+    const scanMetadata = scanCache.getScanMetadata(uuid);
     if (!scanMetadata) {
       return res.status(404).json({ error: 'Scan metadata not found' });
+    }
+
+    // Get scan alerts from ZAP using the activeScanId from cache
+    if (!scanMetadata.activeScanId) {
+      return res.status(400).json({ error: 'No active scan ID found for this scan' });
     }
 
     // Get scan alerts from ZAP
     const alertsResponse = await axios.get('/JSON/core/view/alerts/', {
       params: {
-        scanId,
+        scanId: scanMetadata.activeScanId,
         start: 0,
         count: 100,
         riskId: ''  // Get all risk levels
@@ -51,7 +56,7 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
 
     // Get scan status from ZAP
     const statusResponse = await axios.get('/JSON/ascan/view/status/', {
-      params: { scanId },
+      params: { scanId: scanMetadata.activeScanId },
       baseURL: `http://${process.env.ZAP_API_URL}:8080`,
       headers: process.env.ZAP_API_KEY ? {
         'X-ZAP-API-Key': process.env.ZAP_API_KEY

@@ -6,14 +6,14 @@ import { startScan, getScanStatus } from '../services/api';
 
 export function ScanForm() {
   const [url, setUrl] = useState(() => localStorage.getItem('lastScanUrl') || '');
-  const [scanId, setScanId] = useState<string | null>(null);
+  const [uuid, setUuid] = useState<string | null>(null);
 
   const { mutate: startScanMutation, isPending: isStarting } = useMutation({
     mutationFn: startScan,
     onSuccess: (data) => {
       console.log('Scan started successfully:', data);
       setIsComplete(false); // Reset completion state for new scan
-      setScanId(data.scanId);
+      setUuid(data.uuid);
       localStorage.setItem('lastScanUrl', url); // Save URL to localStorage
     },
     onError: (error) => {
@@ -24,9 +24,9 @@ export function ScanForm() {
   const [isComplete, setIsComplete] = useState(false);
 
   const { data: scanStatus } = useQuery({
-    queryKey: ['scanStatus', scanId],
-    queryFn: () => getScanStatus(scanId!),
-    enabled: !!scanId && !isComplete,
+    queryKey: ['scanStatus', uuid],
+    queryFn: () => getScanStatus(uuid!),
+    enabled: !!uuid && !isComplete,
     refetchInterval: (query) => 
       query.state.data?.error || query.state.data?.isComplete ? false : 1000
   });
@@ -93,10 +93,10 @@ export function ScanForm() {
                       <Text color="green" fw={500}>
                         Scan Complete!
                       </Text>
-                      {scanStatus.results && scanId && (
+                      {scanStatus.results && uuid && (
                         <>
                           <Divider my="lg" />
-                          <AlertList alerts={scanStatus.results} scanId={scanId} />
+                          <AlertList alerts={scanStatus.results} uuid={uuid} />
                         </>
                       )}
                     </>

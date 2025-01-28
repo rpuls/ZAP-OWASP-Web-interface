@@ -17,10 +17,10 @@ interface Alert {
 
 interface AlertListProps {
   alerts: Alert[];
-  scanId: string;
+  uuid: string;
 }
 
-export function AlertList({ alerts, scanId }: AlertListProps) {
+export function AlertList({ alerts, uuid }: AlertListProps) {
   const [filter, setFilter] = useState('all');
 
   const groupedAlerts = useMemo(() => {
@@ -48,7 +48,7 @@ export function AlertList({ alerts, scanId }: AlertListProps) {
       <Group justify="space-between" align="center">
         <Button
           leftSection={<IconDownload size={14} />}
-          onClick={() => generateReport(scanId)}
+          onClick={() => generateReport(uuid)}
           variant="light"
         >
           Download PDF Report

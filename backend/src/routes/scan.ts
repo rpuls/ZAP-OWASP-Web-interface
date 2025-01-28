@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import axios from 'axios';
 import { ScanRequest, ZapScanResponse, ZapStatusResponse } from '../types';
-import { scanCache } from '../services/scanCache';
+import { scanCache, ScanStatus } from '../services/scanCache';
 
 // Get public URL from environment
 const publicUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
@@ -40,7 +40,6 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     console.log('Received scan request:', req.body);
     const { url } = ScanRequestSchema.parse(req.body);
 
-    // Use Railway internal URL directly
     const zapUrl = process.env.ZAP_API_URL;
     if (!zapUrl) {
       throw new Error('ZAP_API_URL environment variable is not set');
@@ -86,11 +85,28 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     });
     console.log('Active scan response:', response.data);
     
-    // Store scan metadata
-    scanCache.storeScanMetadata(response.data.scan, url);
+    // Create scan entry and store initial metadata
+    const scanData = scanCache.createScan(url);
+
+    // Update with spider scan ID and status
+    scanCache.updateScan(scanData.uuid, {
+      status: 'spider-scanning',
+      spiderScanId: spiderResponse.data.scan
+    });
+
+    // Wait for spider to complete
+    await waitForSpiderToComplete(spiderResponse.data.scan);
+    console.log('Spider scan completed');
+    
+    // Update with active scan ID
+    scanCache.updateScan(scanData.uuid, {
+      status: 'active-scanning',
+      activeScanId: response.data.scan,
+      progress: 0
+    });
 
     res.json({
-      scanId: response.data.scan,
+      uuid: scanData.uuid,
       status: 'started',
       url,
     });
@@ -118,16 +134,58 @@ router.post('/', async (req: ScanRequest, res: Response) => {
 });
 
 // GET /api/v1/scans/:scanId - Get scan status
-router.get('/:scanId', async (req: Request, res: Response) => {
+router.get('/:uuid', async (req: Request, res: Response) => {
   try {
-    const scanId = req.params.scanId;
-    console.log('Checking status for scan:', scanId);
+    const uuid = req.params.uuid;
+    console.log('Checking status for scan:', uuid);
+
+    // Get scan metadata
+    const scanMetadata = scanCache.getScanMetadata(uuid);
+    if (!scanMetadata) {
+      return res.status(404).json({
+        error: {
+          message: 'Scan not found',
+          code: 'SCAN_NOT_FOUND'
+        }
+      });
+    }
+
+    // If we're still spider scanning, return early with that status
+    if (scanMetadata.status === 'spider-scanning') {
+      return res.json({
+        uuid,
+        status: 0, // Frontend expects 0 for spider scanning
+        isComplete: false
+      });
+    }
+
+    // If we have an error state, return that
+    if (scanMetadata.status === 'failed') {
+      return res.json({
+        uuid,
+        status: null,
+        isComplete: true,
+        error: {
+          message: scanMetadata.error || 'Scan failed',
+          code: 'SCAN_FAILED'
+        }
+      });
+    }
+
+    // Check active scan status if we have an activeScanId
+    if (!scanMetadata.activeScanId) {
+      return res.json({
+        uuid,
+        status: 0,
+        isComplete: false
+      });
+    }
     
     // Check active scan status
     const response = await axios.get<ZapStatusResponse>('/zap/JSON/ascan/view/status/', {
       baseURL: publicUrl,
       params: {
-        scanId: scanId
+        scanId: scanMetadata.activeScanId
       },
       timeout: 30000,
       validateStatus: null
@@ -138,7 +196,7 @@ router.get('/:scanId', async (req: Request, res: Response) => {
     if (!response.data || response.data.status === undefined) {
       console.error('Invalid response from ZAP:', response.data);
       return res.json({
-        scanId,
+        uuid,
         status: null,
         isComplete: true,
         error: {
@@ -153,6 +211,12 @@ router.get('/:scanId', async (req: Request, res: Response) => {
     const progress = Math.min(response.data.status, 100);
     const isComplete = progress >= 100;
     
+    // Update cache with latest progress
+    scanCache.updateScan(uuid, {
+      progress,
+      status: isComplete ? 'completed' : 'active-scanning'
+    });
+
     let results = null;
     if (isComplete) {
       try {
@@ -176,7 +240,7 @@ router.get('/:scanId', async (req: Request, res: Response) => {
       } catch (alertError) {
         console.error('Failed to fetch alerts:', alertError);
         return res.json({
-          scanId,
+          uuid,
           status: null,
           isComplete: true,
           error: {
@@ -189,7 +253,7 @@ router.get('/:scanId', async (req: Request, res: Response) => {
     }
     
     res.json({
-      scanId,
+      uuid,
       status: progress,
       isComplete,
       results
