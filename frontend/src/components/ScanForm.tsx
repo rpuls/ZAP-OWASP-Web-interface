@@ -28,11 +28,9 @@ export function ScanForm() {
 
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastProgress, setLastProgress] = useState<number | null>(null);
-  const [lastProgressTime, setLastProgressTime] = useState<number | null>(null);
-  const TIMEOUT_THRESHOLD = 30000; // 30 seconds
+  const TIMEOUT_THRESHOLD = 60 * 1000;
 
-  const { data: scanStatus } = useQuery({
+  const { data: scanStatus, dataUpdatedAt } = useQuery({
     queryKey: ['scanStatus', uuid],
     queryFn: () => getScanStatus(uuid!),
     enabled: !!uuid && !isComplete,
@@ -40,27 +38,14 @@ export function ScanForm() {
       query.state.data?.error || query.state.data?.isComplete ? false : 1000
   });
 
-  // Track progress updates and completion state
+  // Update completion state when scan is complete
   useEffect(() => {
-    if (!scanStatus) return;
-
-    if (scanStatus.isComplete && !isComplete) {
+    if (scanStatus?.isComplete && !isComplete) {
       setIsComplete(true);
-      return;
     }
+  }, [scanStatus?.isComplete, isComplete]);
 
-    // Update progress tracking
-    if (scanStatus.status !== lastProgress) {
-      setLastProgress(scanStatus.status);
-      setLastProgressTime(Date.now());
-    }
-  }, [scanStatus, lastProgress, isComplete]);
-
-  // Check if progress is stalled
-  const isProgressStalled = useMemo(() => {
-    if (!lastProgressTime || !scanStatus || scanStatus.isComplete || scanStatus.error) return false;
-    return Date.now() - lastProgressTime > TIMEOUT_THRESHOLD;
-  }, [lastProgressTime, scanStatus]);
+  const isStalled = dataUpdatedAt && (Date.now() - dataUpdatedAt > TIMEOUT_THRESHOLD);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,7 +87,7 @@ export function ScanForm() {
 
           {scanStatus && (
             <>
-              {scanStatus.error || isProgressStalled ? (
+              {scanStatus.error || isStalled ? (
                 <>
                   <Text color="red" fw={500}>
                     {scanStatus.error ? scanStatus.error.message : 
@@ -110,7 +95,6 @@ export function ScanForm() {
                   </Text>
                   <Text size="sm" c="dimmed">
                     This typically happens when the ZAP service runs out of memory. Please check the server logs of your ZAP instance. 
-                    At least 2GB of RAM is required to crawl and scan larger sites.
                   </Text>
                 </>
               ) : (
