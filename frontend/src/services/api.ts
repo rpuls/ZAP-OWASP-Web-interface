@@ -11,9 +11,14 @@ export interface ScanResponse {
 
 export interface ScanStatus {
   scanId: string;
-  status: number;
+  status: number | null;
   isComplete: boolean;
   results: any[] | null;
+  error?: {
+    message: string;
+    code: string;
+    details?: unknown;
+  };
 }
 
 export async function startScan(url: string): Promise<ScanResponse> {

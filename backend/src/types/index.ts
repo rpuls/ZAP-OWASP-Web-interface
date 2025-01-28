@@ -36,7 +36,12 @@ export interface ZapAlert {
 
 export interface ScanStatus {
   scanId: string;
-  status: number;
+  status: number | null;
   isComplete: boolean;
   results: ZapAlert[] | null;
+  error?: {
+    message: string;
+    code: string;
+    details?: unknown;
+  };
 }

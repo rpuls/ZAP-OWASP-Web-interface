@@ -133,6 +133,21 @@ router.get('/:scanId', async (req: Request, res: Response) => {
       validateStatus: null
     });
     console.log('Active scan status response:', response.data);
+
+    // Handle invalid or error responses from ZAP
+    if (!response.data || response.data.status === undefined) {
+      console.error('Invalid response from ZAP:', response.data);
+      return res.json({
+        scanId,
+        status: null,
+        isComplete: true,
+        error: {
+          message: 'Scan failed - Lost connection to ZAP service',
+          code: 'ZAP_CONNECTION_ERROR',
+          details: response.data
+        }
+      });
+    }
     
     // Calculate progress
     const progress = Math.min(response.data.status, 100);
@@ -140,18 +155,37 @@ router.get('/:scanId', async (req: Request, res: Response) => {
     
     let results = null;
     if (isComplete) {
-      // Get alerts when complete
-      const alertsResponse = await axios.get('/zap/JSON/core/view/alerts/', {
-        baseURL: publicUrl,
-        params: {
-          start: 0,
-          count: 100,
-          riskId: ''  // Get all risk levels
-        },
-        timeout: 30000,
-        validateStatus: null
-      });
-      results = alertsResponse.data.alerts;
+      try {
+        // Get alerts when complete
+        const alertsResponse = await axios.get('/zap/JSON/core/view/alerts/', {
+          baseURL: publicUrl,
+          params: {
+            start: 0,
+            count: 100,
+            riskId: ''  // Get all risk levels
+          },
+          timeout: 30000,
+          validateStatus: null
+        });
+
+        if (!alertsResponse.data || !Array.isArray(alertsResponse.data.alerts)) {
+          throw new Error('Invalid alerts response from ZAP');
+        }
+
+        results = alertsResponse.data.alerts;
+      } catch (alertError) {
+        console.error('Failed to fetch alerts:', alertError);
+        return res.json({
+          scanId,
+          status: null,
+          isComplete: true,
+          error: {
+            message: 'Scan failed - Unable to fetch results',
+            code: 'ALERTS_FETCH_ERROR',
+            details: alertError instanceof Error ? alertError.message : 'Unknown error'
+          }
+        });
+      }
     }
     
     res.json({

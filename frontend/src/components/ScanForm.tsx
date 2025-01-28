@@ -27,7 +27,8 @@ export function ScanForm() {
     queryKey: ['scanStatus', scanId],
     queryFn: () => getScanStatus(scanId!),
     enabled: !!scanId && !isComplete,
-    refetchInterval: 1000
+    refetchInterval: (query) => 
+      query.state.data?.error || query.state.data?.isComplete ? false : 1000
   });
 
   // Update completion state when scan is complete
@@ -70,25 +71,34 @@ export function ScanForm() {
 
           {scanStatus && (
             <>
-              <Text size="sm" fw={500}>
-                {scanStatus.status === 0 ? 'Spider scan in progress...' : `Active scan progress: ${scanStatus.status}%`}
-              </Text>
-              <Progress 
-                value={scanStatus.status} 
-                size="xl" 
-                radius="xl" 
-                striped 
-                animated={!scanStatus.isComplete}
-              />
-              {scanStatus.isComplete && (
+              {scanStatus.error ? (
+                <Text color="red" fw={500}>
+                  {scanStatus.error.message}
+                </Text>
+              ) : (
                 <>
-                  <Text color="green" fw={500}>
-                    Scan Complete!
+                  <Text size="sm" fw={500}>
+                    {scanStatus.status === 0 ? 'Spider scan in progress...' : `Active scan progress: ${scanStatus.status}%`}
                   </Text>
-                  {scanStatus.results && scanId && (
+                  <Progress 
+                    value={scanStatus.status ?? 0} 
+                    size="xl" 
+                    radius="xl" 
+                    striped 
+                    animated={!scanStatus.isComplete}
+                    color={scanStatus.status === null ? 'red' : undefined}
+                  />
+                  {scanStatus.isComplete && !scanStatus.error && (
                     <>
-                      <Divider my="lg" />
-                      <AlertList alerts={scanStatus.results} scanId={scanId} />
+                      <Text color="green" fw={500}>
+                        Scan Complete!
+                      </Text>
+                      {scanStatus.results && scanId && (
+                        <>
+                          <Divider my="lg" />
+                          <AlertList alerts={scanStatus.results} scanId={scanId} />
+                        </>
+                      )}
                     </>
                   )}
                 </>
