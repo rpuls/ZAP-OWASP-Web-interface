@@ -7,6 +7,10 @@ import { PdfGenerationOptions, COLORS } from './types';
 import { groupAlertsByRisk, formatDate } from './utils';
 import { PDFTemplateUtils } from './pdfTemplateUtils';
 
+// Load logos
+const zapLogoPath = path.join(__dirname, '../../assets/ZAP-logo.png');
+const funkytonLogoPath = path.join(__dirname, '../../assets/funkyton-logo.png');
+
 const TMP_DIR = path.join(os.tmpdir(), 'zap-reports');
 
 // Ensure temp directory exists
@@ -93,16 +97,25 @@ function generateContent(doc: PDFKit.PDFDocument, alerts: ZapAlert[], options: P
   const pdfUtils = new PDFTemplateUtils(doc);
   let y = 100;
 
-  // Title page
+  // Title
   doc.fontSize(24).fillColor(COLORS.text);
-  y = pdfUtils.addWrappedText('Security Scan Report', 50, y, 500, { align: 'center' });
+  y = pdfUtils.addWrappedText('ZAP OWASP Scan Report', 50, y, 500, { align: 'center' });
+
+  // Add ZAP logo
+  const zapLogoSize = { width: 60, height: 60 };
+  y += 20;
+  doc.image(zapLogoPath, (doc.page.width - zapLogoSize.width) / 2, y, { 
+    width: zapLogoSize.width,
+    height: zapLogoSize.height
+  });
+  y += zapLogoSize.height + 20;
 
   // Scanned URL
   doc.fontSize(14).fillColor(COLORS.text);
   y = pdfUtils.addWrappedText(
     'Scanned URL:',
     50,
-    y + 50,
+    y,
     500,
     { align: 'center' }
   );
@@ -128,7 +141,7 @@ function generateContent(doc: PDFKit.PDFDocument, alerts: ZapAlert[], options: P
       (doc.page.width - boxWidth) / 2,
       boxY,
       boxWidth,
-      100
+      80
     )
     .fillColor('#f8f9fa')
     .fill();
@@ -151,27 +164,17 @@ function generateContent(doc: PDFKit.PDFDocument, alerts: ZapAlert[], options: P
     { align: 'center' }
   );
 
-  y = pdfUtils.addWrappedText(
-    `Status: ${options.status}`,
-    50,
-    y + 15,
-    500,
-    { align: 'center' }
-  );
-  doc.font('Helvetica');
-
   // Summary
   const groups = groupAlertsByRisk(alerts);
-  y = boxY + 150; // Increased spacing after info box
+  y = boxY + 100; // Reduced spacing after info box
 
   // Summary title
   doc.fontSize(14).font('Helvetica-Bold');
   y = pdfUtils.addWrappedText('Summary of Findings', 50, y, 500);
   doc.font('Helvetica');
 
-  y += 30;
+  y += 15;
 
-  // Risk categories
   groups.forEach(group => {
     doc.fontSize(12).fillColor(group.color).font('Helvetica-Bold');
     y = pdfUtils.addWrappedText(
@@ -181,10 +184,39 @@ function generateContent(doc: PDFKit.PDFDocument, alerts: ZapAlert[], options: P
       480
     );
     doc.font('Helvetica');
-    y += 20;
+    y += 10;
   });
 
-  // Detailed findings
+  // Position footer at bottom of page
+  const funkytonLogoSize = { width: 200, height: 40.5 }; // Maintaining 1017:206 ratio
+  const footerY = doc.page.height - 180; // Increased distance from bottom
+
+  // Links and logo in footer
+  doc.fontSize(10).fillColor(COLORS.text);
+  pdfUtils.addWrappedText(
+    'Read more: https://funkyton.com/zap-owasp-web-scan/ • Powered by: https://www.zaproxy.org/',
+    50,
+    footerY,
+    500,
+    { align: 'center' }
+  );
+
+  doc.image(funkytonLogoPath, (doc.page.width - funkytonLogoSize.width) / 2, footerY + 15, {
+    width: funkytonLogoSize.width,
+    height: funkytonLogoSize.height,
+    align: 'center'
+  });
+  
+  doc.fontSize(10).fillColor(COLORS.text);
+  pdfUtils.addWrappedText(
+    'Made by Funkyton • https://funkyton.com/',
+    50,
+    footerY + funkytonLogoSize.height + 20,
+    500,
+    { align: 'center' }
+  );
+
+  // Start new page for detailed findings
   groups.forEach(group => {
     doc.addPage();
     y = pdfUtils.addSection(`${group.risk} Risk Findings`, 50, group.color);
@@ -220,7 +252,8 @@ function generateContent(doc: PDFKit.PDFDocument, alerts: ZapAlert[], options: P
         });
       }
 
-      y += 15; // Space between alerts
+  y += 15; // Space between alerts
     });
   });
+
 }

@@ -43,6 +43,22 @@ Use one-click deploy template:
 
 This template automatically launches the required [ZAP docker container](https://hub.docker.com/r/zaproxy/zap-weekly), then builds the web interface and connect it to the API, so you don't have to do anything. But, note that the ZAP service is memory-intensive - ensure your deployment environment has sufficient resources (minimum 2GB RAM) for reliable scanning, but for larger scans more memory might be required.
 
+
+### Local Setup
+
+1. Make sure to have Docker imgae `zaproxy/zap-stable:latest` running with the following start command:
+```bash
+docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 \
+  -config api.disablekey=true \
+  -config api.addrs.addr.name=.* \
+  -config api.addrs.addr.regex=true
+```
+2. Clone the project: Launch on Railway and eject [watch how](https://www.youtube.com/watch?v=LJFek8JP8TE). Alternatively, clone this repo or fork it.
+3. Install dependencies:
+   - `pnpm install`
+4. Rename `.env.template` to `.env` (edit if needed)
+5. Start the app `pnpm build && pnpm start` 
+
 ### System Requirements
 
 - **Memory**: Minimum 2GB RAM for the ZAP service
@@ -62,23 +78,6 @@ This template automatically launches the required [ZAP docker container](https:/
   - Solutions and references
   - Risk-based categorization
 - **Railway-ready configuration**
-
-
-
-### Local Setup
-
-1. Clone the project: Launch on Railway and eject [watch how](https://www.youtube.com/watch?v=LJFek8JP8TE). Alternatively, clone this repo or fork it.
-2. Install dependencies:
-   - `pnpm install`
-3. Rename `.env.template` to `.env`
-4. Edit environment variables if needed, or leave default values:
-```
-PORT=3001
-ZAP_API_URL=http://localhost:8080
-PUBLIC_URL=http://localhost:3001
-NODE_ENV=development
-```
-5. Start the development servers: `pnpm dev`
 
 
 #### Requirements
@@ -103,22 +102,6 @@ The project is organized as a monorepo containing both frontend and backend:
 ├── backend/ # Node.js/Express backend service
 └── package.json # Root package.json for workspace management
 ```
-
-
-## Environment Variables
-
-For Railway deployment, configure these environment variables:
-```
-NODE_ENV=production
-ZAP_API_URL=${ZAP.RAILWAY_PRIVATE_DOMAIN}
-ZAP_API_KEY=your-zap-api-key
-RAILWAY_PUBLIC_DOMAIN # Automatically provided by Railway
-```
-
-
-The application will use:
-- `RAILWAY_PUBLIC_DOMAIN` for the public-facing URL.
-- `ZAP.RAILWAY_PRIVATE_DOMAIN` for internal service communication.
 
 ## Features
 

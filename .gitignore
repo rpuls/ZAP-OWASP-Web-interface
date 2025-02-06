@@ -8,6 +8,8 @@ node_modules
 **/dist-ssr/
 **/build/
 
+test-reports
+
 # Environment files
 .env
 .env.local
