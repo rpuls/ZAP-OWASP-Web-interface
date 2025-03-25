@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ScanRequest } from '../types';
 import { scanService } from '../services/scanService';
 import { zapService } from '../services/zapService';
+import { ScanSummary } from '../services/scanCache';
 
 
 const router = Router();
@@ -72,6 +73,31 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     } else {
       res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to start scan' });
     }
+  }
+});
+
+// GET /api/v1/scans - Get all scans with pagination
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    const { scans, total } = await scanService.getAllScans(page, limit);
+    
+    res.json({
+      scans,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Failed to fetch scan history:', error);
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Failed to fetch scan history' 
+    });
   }
 });
 

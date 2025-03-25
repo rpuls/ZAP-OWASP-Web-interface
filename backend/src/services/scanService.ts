@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { scanCache, ScanMetadata, ScanStatus } from './scanCache';
+import { scanCache, ScanMetadata, ScanStatus, ScanSummary, AlertCounts } from './scanCache';
 import { dbConnection } from './persistence/db-connection';
 import { ZapAlert } from '../types';
 
@@ -26,7 +26,7 @@ class ScanService {
           data: {
             uuid: scanData.uuid,
             url: scanData.url,
-            timestamp: scanData.timestamp,
+            startedAt: scanData.startedAt,
             status: scanData.status,
             progress: scanData.progress
           }
@@ -61,7 +61,8 @@ class ScanService {
           return {
             uuid: dbScan.uuid,
             url: dbScan.url,
-            timestamp: new Date(dbScan.timestamp),
+            startedAt: new Date(dbScan.startedAt),
+            completedAt: dbScan.completedAt ? new Date(dbScan.completedAt) : undefined,
             status: dbScan.status as ScanStatus,
             progress: dbScan.progress,
             spiderScanId: dbScan.spiderScanId || undefined,
@@ -102,6 +103,14 @@ class ScanService {
   async completeScan(uuid: string): Promise<void> {
     const scan = scanCache.getScanMetadata(uuid);
     if (!scan) return;
+    const completedAt = new Date();
+    
+    // Update scan in cache with completedAt
+    scanCache.updateScan(uuid, {
+      completedAt,
+      status: 'completed',
+      progress: 100
+    });
     
     // If DB connected, ensure scan is persisted with final state
     if (this.isDbConnected && this.prisma) {
@@ -110,7 +119,8 @@ class ScanService {
           where: { uuid },
           data: {
             status: 'completed',
-            progress: 100
+            progress: 100,
+            completedAt
           }
         });
         console.log(`Scan ${uuid} marked as completed in database`);
@@ -208,6 +218,100 @@ class ScanService {
     return null; // No alerts found in DB
   }
   
+  // Get all scans with pagination
+  async getAllScans(page: number = 1, limit: number = 10): Promise<{
+    scans: ScanSummary[];
+    total: number;
+  }> {
+    const results: ScanSummary[] = [];
+    let total = 0;
+    
+    // Get from database if connected
+    if (this.isDbConnected && this.prisma) {
+      try {
+        // Get total count
+        total = await this.prisma.scan.count();
+        
+        // Get paginated results
+        const dbScans = await this.prisma.scan.findMany({
+          orderBy: { startedAt: 'desc' },
+          skip: (page - 1) * limit,
+          take: limit,
+          include: {
+            // Include alert counts
+            _count: {
+              select: { alerts: true }
+            }
+          }
+        });
+        
+        // Convert DB records to ScanSummary format with duration and alert counts
+        for (const scan of dbScans) {
+          // Get alert counts by risk level
+          const alerts = await this.prisma.alert.findMany({
+            where: { scanId: scan.uuid },
+            select: { risk: true }
+          });
+          
+          const alertCounts = {
+            high: alerts.filter(a => a.risk === 'High').length,
+            medium: alerts.filter(a => a.risk === 'Medium').length,
+            low: alerts.filter(a => a.risk === 'Low').length,
+            info: alerts.filter(a => a.risk === 'Informational').length,
+          };
+          
+          // Calculate duration if scan is completed
+          let duration = undefined;
+          if (scan.status === 'completed' && scan.completedAt) {
+            duration = new Date(scan.completedAt).getTime() - new Date(scan.startedAt).getTime();
+          }
+          
+          results.push({
+            uuid: scan.uuid,
+            url: scan.url,
+            startedAt: new Date(scan.startedAt),
+            completedAt: scan.completedAt ? new Date(scan.completedAt) : undefined,
+            status: scan.status as ScanStatus,
+            progress: scan.progress,
+            alertCounts,
+            totalAlerts: scan._count.alerts,
+            duration
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch scans from database:', error);
+      }
+    }
+    
+    // Get from cache and merge (avoiding duplicates)
+    const cacheScans = Array.from(scanCache.getAllScans().values());
+    for (const cacheScan of cacheScans) {
+      if (!results.some(scan => scan.uuid === cacheScan.uuid)) {
+        // For cache items, we don't have alert counts, so we'll set them to 0
+        results.push({
+          uuid: cacheScan.uuid,
+          url: cacheScan.url,
+          startedAt: cacheScan.startedAt,
+          completedAt: cacheScan.completedAt,
+          status: cacheScan.status,
+          progress: cacheScan.progress,
+          alertCounts: { high: 0, medium: 0, low: 0, info: 0 },
+          totalAlerts: 0,
+          duration: cacheScan.completedAt ? 
+            cacheScan.completedAt.getTime() - cacheScan.startedAt.getTime() : undefined
+        });
+      }
+    }
+    
+    // Sort by startedAt (newest first)
+    results.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
+    
+    return {
+      scans: results.slice((page - 1) * limit, page * limit),
+      total: Math.max(total, results.length)
+    };
+  }
+
   // Get alerts from the best available source (DB or ZAP)
   async getAlerts(scanId: string, activeScanId?: string): Promise<ZapAlert[]> {
     // First try to get alerts from database if connected

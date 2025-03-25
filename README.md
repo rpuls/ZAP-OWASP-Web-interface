@@ -122,6 +122,14 @@ The application supports optional PostgreSQL database integration:
   - Connect to a local PostgreSQL instance
   - Connect to a remote PostgreSQL database
 
+#### Prisma ORM
+
+This project uses Prisma ORM for database operations:
+
+- **Automatic Client Generation**: The Prisma client is automatically generated during the build process
+- **Schema-First Approach**: The database schema is defined in `backend/prisma/schema.prisma`
+- **Type Safety**: Prisma provides type-safe database access with TypeScript integration
+
 #### Configuring Database Connection
 
 To enable database persistence, set the `DATABASE_URL` environment variable in your `.env` file:

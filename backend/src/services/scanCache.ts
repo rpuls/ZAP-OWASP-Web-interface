@@ -5,12 +5,32 @@ export type ScanStatus = 'pending' | 'spider-scanning' | 'active-scanning' | 'co
 export interface ScanMetadata {
   uuid: string;
   url: string;
-  timestamp: Date;
+  startedAt: Date;
+  completedAt?: Date;
   status: ScanStatus;
   progress: number;
   spiderScanId?: string;
   activeScanId?: string;
   error?: string;
+}
+
+export interface AlertCounts {
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+}
+
+export interface ScanSummary {
+  uuid: string;
+  url: string;
+  startedAt: Date;
+  completedAt?: Date;
+  status: ScanStatus;
+  progress: number;
+  alertCounts?: AlertCounts;
+  totalAlerts?: number;
+  duration?: number; // in milliseconds
 }
 
 class ScanCacheService {
@@ -20,7 +40,7 @@ class ScanCacheService {
     const scanData: ScanMetadata = {
       uuid: uuidv4(),
       url,
-      timestamp: new Date(),
+      startedAt: new Date(),
       status: 'pending',
       progress: 0
     };
@@ -42,11 +62,16 @@ class ScanCacheService {
     return updatedScan;
   }
 
+  // Get all scans from cache
+  getAllScans(): Map<string, ScanMetadata> {
+    return new Map(this.scanMap);
+  }
+
   // Optional: Clean up old scans (could be called periodically)
   cleanOldScans(maxAgeHours: number = 24): void {
     const now = new Date();
     for (const [uuid, metadata] of this.scanMap.entries()) {
-      const ageHours = (now.getTime() - metadata.timestamp.getTime()) / (1000 * 60 * 60);
+      const ageHours = (now.getTime() - metadata.startedAt.getTime()) / (1000 * 60 * 60);
       if (ageHours > maxAgeHours) {
         this.scanMap.delete(uuid);
       }

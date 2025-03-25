@@ -10,7 +10,8 @@ datasource db {
 model Scan {
   uuid         String   @id
   url          String
-  timestamp    DateTime
+  startedAt    DateTime
+  completedAt  DateTime?
   status       String
   progress     Int
   spiderScanId String?

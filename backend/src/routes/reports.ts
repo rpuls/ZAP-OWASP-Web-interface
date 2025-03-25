@@ -41,7 +41,8 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
 
     const scanDetails = {
       targetUrl: scanMetadata.url,
-      startTime: scanMetadata.timestamp
+      startTime: scanMetadata.startedAt,
+      completedAt: scanMetadata.completedAt
     };
     const filepath = await generatePdfReport(alerts, scanDetails);
     

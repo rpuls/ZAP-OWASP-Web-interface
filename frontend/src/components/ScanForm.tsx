@@ -4,9 +4,21 @@ import { AlertList } from './AlertList';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { startScan, getScanStatus } from '../services/api';
 
-export function ScanForm() {
+interface ScanFormProps {
+  currentUuid: string | null;
+  onScanStart: (uuid: string) => void;
+}
+
+export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
   const [url, setUrl] = useState(() => localStorage.getItem('lastScanUrl') || '');
-  const [uuid, setUuid] = useState<string | null>(null);
+  const [uuid, setUuid] = useState<string | null>(currentUuid);
+
+  // Update local uuid state when prop changes
+  useEffect(() => {
+    if (currentUuid !== uuid) {
+      setUuid(currentUuid);
+    }
+  }, [currentUuid]);
 
   const { mutate: startScanMutation, isPending: isStarting } = useMutation({
     mutationFn: startScan,
@@ -14,6 +26,7 @@ export function ScanForm() {
       console.log('Scan started successfully:', data);
       setIsComplete(false); // Reset completion state for new scan
       setUuid(data.uuid);
+      onScanStart(data.uuid); // Update parent component
       localStorage.setItem('lastScanUrl', url); // Save URL to localStorage
     },
     onError: (error) => {

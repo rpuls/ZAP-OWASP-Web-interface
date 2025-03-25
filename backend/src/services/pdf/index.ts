@@ -163,6 +163,16 @@ function generateContent(doc: PDFKit.PDFDocument, alerts: ZapAlert[], options: P
     500,
     { align: 'center' }
   );
+  
+  if (options.completedAt) {
+    y = pdfUtils.addWrappedText(
+      `Completed: ${formatDate(options.completedAt)}`,
+      50,
+      y + 15,
+      500,
+      { align: 'center' }
+    );
+  }
 
   // Summary
   const groups = groupAlertsByRisk(alerts);
