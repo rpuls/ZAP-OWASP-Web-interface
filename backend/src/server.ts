@@ -6,9 +6,18 @@ import fs from 'fs';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { scanRouter } from './routes/scan';
 import { reportsRouter } from './routes/reports';
+import { dbConnection } from './services/persistence/db-connection';
 
 // Load .env from root directory
 dotenv.config({ path: path.join(__dirname, '../../.env') });
+
+// Debug: Log the DATABASE_URL
+console.log('DATABASE_URL from env:', process.env.DATABASE_URL);
+
+// Initialize database connection
+(async () => {
+  await dbConnection.initialize(process.env.DATABASE_URL);
+})();
 
 const app = express();
 const port = process.env.PORT || 8080;  // Railway default port
@@ -27,7 +36,7 @@ app.use(express.json({ limit: '50mb' }));  // Increase payload limit for large s
 
 // Log all requests
 app.use((req, res, next) => {
-  console.log('Incoming request:', {
+  process.env.VERBOSE && console.log('Incoming request:', {
     method: req.method,
     path: req.path,
     headers: req.headers
@@ -61,7 +70,7 @@ app.use(
         proxyReq.setHeader('X-ZAP-API-Key', zapApiKey);
       }
 
-      console.log('Proxying request to ZAP:', {
+      process.env.VERBOSE && console.log('Proxying request to ZAP:', {
         url: zapTarget + proxyReq.path,
         method: proxyReq.method,
         headers: proxyReq.getHeaders(),

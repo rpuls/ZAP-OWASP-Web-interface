@@ -1,23 +1,26 @@
 import { v4 as uuidv4 } from 'uuid';
 import { ScanMetadata, ScanStatus } from '../scanCache';
 import { ScanPersistenceInterface } from './persistence.interface';
-
-// Check if DATABASE_URL is defined in the environment
-const db = process.env.DATABASE_URL ? true : false;
+import { DatabasePersistence } from './database-persistence';
+import { dbConnection } from './db-connection';
 
 export class PersistenceService implements ScanPersistenceInterface {
   private scanMap: Map<string, ScanMetadata> = new Map();
-  private useDatabase: boolean;
+  private dbPersistence: DatabasePersistence | null = null;
   
   constructor() {
-    // Check if database should be used
-    this.useDatabase = db;
-    
-    if (this.useDatabase) {
+    // Initialize database persistence if connection is available
+    if (dbConnection.isConnected) {
+      this.dbPersistence = new DatabasePersistence();
       console.log('Database persistence enabled for completed scans');
     } else {
-      console.log('Using memory-only persistence (no DATABASE_URL defined)');
+      console.log('Using memory-only persistence (no database connection)');
     }
+  }
+  
+  // Check if database is available
+  get isDatabaseAvailable(): boolean {
+    return dbConnection.isConnected && this.dbPersistence !== null;
   }
   
   async createScan(url: string): Promise<ScanMetadata> {
@@ -42,14 +45,14 @@ export class PersistenceService implements ScanPersistenceInterface {
     }
     
     // If not in memory and we have a database, try to retrieve it
-    if (this.useDatabase) {
+    if (this.isDatabaseAvailable) {
       try {
-        // This is a placeholder for database retrieval
-        // Will be implemented when we add Prisma
-        console.log(`Attempting to retrieve scan ${uuid} from database`);
-        
-        // For now, return undefined as if not found in database
-        return undefined;
+        const dbScan = await this.dbPersistence!.getScanMetadata(uuid);
+        if (dbScan) {
+          // Store in memory cache for future access
+          this.scanMap.set(uuid, dbScan);
+          return dbScan;
+        }
       } catch (error) {
         console.error(`Failed to retrieve scan ${uuid} from database:`, error);
       }
@@ -69,10 +72,9 @@ export class PersistenceService implements ScanPersistenceInterface {
     
     // If scan is completed or failed and we have a database, persist it
     if ((updatedScan.status === 'completed' || updatedScan.status === 'failed') && 
-        this.useDatabase) {
+        this.isDatabaseAvailable) {
       try {
-        // This is a placeholder for database persistence
-        // Will be implemented when we add Prisma
+        await this.dbPersistence!.updateScan(uuid, updatedScan);
         console.log(`Persisting completed scan ${uuid} to database`);
         
         // Remove from memory cache after successful persistence
@@ -98,11 +100,10 @@ export class PersistenceService implements ScanPersistenceInterface {
     }
     
     // Clean database if available
-    if (this.useDatabase) {
+    if (this.isDatabaseAvailable) {
       try {
-        // This is a placeholder for database cleanup
-        // Will be implemented when we add Prisma
-        console.log(`Cleaning scans older than ${maxAgeHours} hours from database`);
+        await this.dbPersistence!.cleanOldScans(maxAgeHours);
+        console.log(`Cleaned scans older than ${maxAgeHours} hours from database`);
       } catch (error) {
         console.error('Failed to clean old scans from database:', error);
       }

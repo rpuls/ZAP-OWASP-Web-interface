@@ -3,34 +3,32 @@ import { PrismaClient } from '@prisma/client';
 import { ScanMetadata, ScanStatus } from '../scanCache';
 import { ScanPersistenceInterface } from './persistence.interface';
 
+import { dbConnection } from './db-connection';
+
 /**
- * This class is a placeholder for the actual database implementation.
- * It will be used when the DATABASE_URL environment variable is defined.
- * 
- * Note: This implementation is not used in the current version of the application.
- * It's here to show how the database implementation would look like when needed.
+ * This class implements database persistence using Prisma.
+ * It will be used when the database connection is available.
  */
 export class DatabasePersistence implements ScanPersistenceInterface {
-  private prisma: PrismaClient;
   
   constructor() {
-    this.prisma = new PrismaClient();
-    
-    // Test database connection
-    this.testConnection().catch(error => {
-      console.error('Failed to connect to database:', error);
-    });
+    if (!dbConnection.isConnected) {
+      console.warn('Database connection not available, some operations may fail');
+    }
   }
   
-  private async testConnection(): Promise<void> {
-    try {
-      // Simple query to test connection
-      await this.prisma.$queryRaw`SELECT 1`;
-      console.log('Database connection successful');
-    } catch (error) {
-      console.error('Database connection failed:', error);
-      throw error;
+  // Public getter for connection status
+  get isConnected(): boolean {
+    return dbConnection.isConnected;
+  }
+  
+  // Helper to get Prisma client
+  private get prisma(): PrismaClient {
+    const client = dbConnection.getPrismaClient();
+    if (!client) {
+      throw new Error('Database connection not available');
     }
+    return client;
   }
   
   async createScan(url: string): Promise<ScanMetadata> {
