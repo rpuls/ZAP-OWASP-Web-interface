@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { scanCache, ScanMetadata, ScanStatus } from './scanCache';
 import { dbConnection } from './persistence/db-connection';
+import { ZapAlert } from '../types';
 
 class ScanService {
   // Check if database is connected
@@ -131,6 +132,108 @@ class ScanService {
   // Helper method to get activeScanId by uuid (for compatibility)
   getActiveScanId(uuid: string): string | undefined {
     return scanCache.getActiveScanId(uuid);
+  }
+
+  // Save alerts to database
+  async saveAlerts(scanId: string, alerts: ZapAlert[]): Promise<void> {
+    // Only save to database if connected
+    if (this.isDbConnected && this.prisma) {
+      try {
+        // Create alerts in database with relation to scan
+        await Promise.all(
+          alerts.map(alert => 
+            this.prisma!.alert.create({
+              data: {
+                scanId,
+                zapId: alert.id,
+                name: alert.name,
+                risk: alert.risk,
+                description: alert.description,
+                solution: alert.solution,
+                reference: alert.reference,
+                url: alert.url,
+                evidence: alert.evidence,
+                param: alert.param,
+                attack: alert.attack,
+                other: alert.other,
+                confidence: alert.confidence,
+                wascid: alert.wascid,
+                cweid: alert.cweid,
+                tags: alert.tags ? alert.tags : undefined
+              }
+            })
+          )
+        );
+        console.log(`${alerts.length} alerts saved to database for scan ${scanId}`);
+      } catch (error) {
+        console.error('Failed to save alerts to database:', error);
+      }
+    }
+  }
+
+  // Get alerts from database
+  async getAlertsFromDb(scanId: string): Promise<ZapAlert[] | null> {
+    // If DB connected, try to get alerts from DB
+    if (this.isDbConnected && this.prisma) {
+      try {
+        const dbAlerts = await this.prisma.alert.findMany({
+          where: { scanId }
+        });
+        
+        if (dbAlerts.length > 0) {
+          // Convert DB records to ZapAlert format
+          return dbAlerts.map(alert => ({
+            id: alert.zapId || alert.id,
+            name: alert.name,
+            risk: alert.risk,
+            description: alert.description,
+            solution: alert.solution,
+            reference: alert.reference,
+            url: alert.url,
+            evidence: alert.evidence || undefined,
+            param: alert.param || undefined,
+            attack: alert.attack || undefined,
+            other: alert.other || undefined,
+            confidence: alert.confidence || undefined,
+            wascid: alert.wascid || undefined,
+            cweid: alert.cweid || undefined,
+            tags: alert.tags as Record<string, string> || undefined
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch alerts from database:', error);
+      }
+    }
+    
+    return null; // No alerts found in DB
+  }
+  
+  // Get alerts from the best available source (DB or ZAP)
+  async getAlerts(scanId: string, activeScanId?: string): Promise<ZapAlert[]> {
+    // First try to get alerts from database if connected
+    if (this.isDbConnected) {
+      const dbAlerts = await this.getAlertsFromDb(scanId);
+      if (dbAlerts && dbAlerts.length > 0) {
+        console.log(`Retrieved ${dbAlerts.length} alerts from database for scan ${scanId}`);
+        return dbAlerts;
+      }
+    }
+    
+    // If no alerts in DB or DB not connected, try ZAP
+    if (activeScanId) {
+      try {
+        const { zapService } = require('./zapService');
+        const zapAlerts = await zapService.getAlerts(activeScanId);
+        console.log(`Retrieved ${zapAlerts.length} alerts from ZAP for scan ${scanId}`);
+        return zapAlerts;
+      } catch (error) {
+        console.error('Failed to fetch alerts from ZAP:', error);
+        throw new Error('Could not retrieve alerts from database or ZAP');
+      }
+    }
+    
+    // If we get here, we couldn't get alerts from either source
+    throw new Error('Could not retrieve alerts: No database connection and no active scan ID provided');
   }
 }
 

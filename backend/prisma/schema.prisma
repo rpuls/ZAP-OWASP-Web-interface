@@ -16,4 +16,34 @@ model Scan {
   spiderScanId String?
   activeScanId String?
   error        String?
+  
+  // Relation to alerts
+  alerts       Alert[]
+}
+
+model Alert {
+  id          String   @id @default(uuid())
+  scanId      String
+  scan        Scan     @relation(fields: [scanId], references: [uuid], onDelete: Cascade)
+  
+  // ZAP Alert fields
+  zapId       String?
+  name        String
+  risk        String
+  description String    @db.Text
+  solution    String    @db.Text
+  reference   String    @db.Text
+  url         String
+  evidence    String?   @db.Text
+  param       String?
+  attack      String?   @db.Text
+  other       String?   @db.Text
+  confidence  String?
+  wascid      String?
+  cweid       String?
+  
+  // JSON field for tags
+  tags        Json?
+  
+  createdAt   DateTime  @default(now())
 }

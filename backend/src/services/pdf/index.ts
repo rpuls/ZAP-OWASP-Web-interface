@@ -192,29 +192,29 @@ function generateContent(doc: PDFKit.PDFDocument, alerts: ZapAlert[], options: P
   const footerY = doc.page.height - 180; // Increased distance from bottom
 
   // Links and logo in footer
-  doc.fontSize(10).fillColor(COLORS.text);
-  pdfUtils.addWrappedText(
-    'Read more: https://funkyton.com/zap-owasp-web-scan/ • Powered by: https://www.zaproxy.org/',
-    50,
-    footerY,
-    500,
-    { align: 'center' }
-  );
+  // doc.fontSize(10).fillColor(COLORS.text);
+  // pdfUtils.addWrappedText(
+  //   'Read more: https://funkyton.com/zap-owasp-web-scan/ • Powered by: https://www.zaproxy.org/',
+  //   50,
+  //   footerY,
+  //   500,
+  //   { align: 'center' }
+  // );
 
-  doc.image(funkytonLogoPath, (doc.page.width - funkytonLogoSize.width) / 2, footerY + 15, {
-    width: funkytonLogoSize.width,
-    height: funkytonLogoSize.height,
-    align: 'center'
-  });
+  // doc.image(funkytonLogoPath, (doc.page.width - funkytonLogoSize.width) / 2, footerY + 15, {
+  //   width: funkytonLogoSize.width,
+  //   height: funkytonLogoSize.height,
+  //   align: 'center'
+  // });
   
-  doc.fontSize(10).fillColor(COLORS.text);
-  pdfUtils.addWrappedText(
-    'Made by Funkyton • https://funkyton.com/',
-    50,
-    footerY + funkytonLogoSize.height + 20,
-    500,
-    { align: 'center' }
-  );
+  // doc.fontSize(10).fillColor(COLORS.text);
+  // pdfUtils.addWrappedText(
+  //   'Made by Funkyton • https://funkyton.com/',
+  //   50,
+  //   footerY + funkytonLogoSize.height + 20,
+  //   500,
+  //   { align: 'center' }
+  // );
 
   // Start new page for detailed findings
   groups.forEach(group => {

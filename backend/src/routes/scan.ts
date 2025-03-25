@@ -163,6 +163,11 @@ router.get('/:uuid', async (req: Request, res: Response) => {
       try {
         // Get alerts when complete
         results = await zapService.getAlerts(scanMetadata.activeScanId);
+        
+        // Save alerts to database if we have results
+        if (results && results.length > 0) {
+          await scanService.saveAlerts(uuid, results);
+        }
       } catch (alertError) {
         console.error('Failed to fetch alerts:', alertError);
         return res.json({

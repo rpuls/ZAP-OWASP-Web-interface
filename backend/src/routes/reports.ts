@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import axios from 'axios';
 import { generatePdfReport } from '../services/pdf';
 import { scanService } from '../services/scanService';
 import { zapService } from '../services/zapService';
@@ -34,16 +33,15 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
       return res.status(400).json({ error: 'No active scan ID found for this scan' });
     }
 
-    // Get scan alerts from ZAP
-    const alerts = await zapService.getAlerts(scanMetadata.activeScanId);
+    // Get alerts using the scanService's getAlerts method
+    const alerts = await scanService.getAlerts(uuid, scanMetadata.activeScanId);
 
     // Get scan status from ZAP
     const statusResponse = await zapService.checkActiveScanStatus(scanMetadata.activeScanId);
 
     const scanDetails = {
       targetUrl: scanMetadata.url,
-      startTime: scanMetadata.timestamp,
-      status: statusResponse.status === 100 ? 'FINISHED' : 'IN PROGRESS'
+      startTime: scanMetadata.timestamp
     };
     const filepath = await generatePdfReport(alerts, scanDetails);
     
