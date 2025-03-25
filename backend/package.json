@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc && ts-node scripts/post-build.ts",
+    "build": "prisma generate && tsc && ts-node scripts/post-build.ts",
     "start": "node dist/server.js",
     "testpdf": "ts-node-dev test/pdf-test.ts",
     "prisma:generate": "prisma generate",

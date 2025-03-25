@@ -141,7 +141,7 @@ class ScanService {
       try {
         // Create alerts in database with relation to scan
         await Promise.all(
-          alerts.map(alert => 
+          alerts.map((alert: ZapAlert) => 
             this.prisma!.alert.create({
               data: {
                 scanId,
