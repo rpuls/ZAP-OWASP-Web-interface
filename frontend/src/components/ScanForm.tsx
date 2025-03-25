@@ -58,7 +58,7 @@ export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
     }
   }, [scanStatus?.isComplete, isComplete]);
 
-  const isStalled = dataUpdatedAt && (Date.now() - dataUpdatedAt > TIMEOUT_THRESHOLD);
+  const isStalled = dataUpdatedAt && (Date.now() - dataUpdatedAt > TIMEOUT_THRESHOLD) && !scanStatus?.isComplete;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
