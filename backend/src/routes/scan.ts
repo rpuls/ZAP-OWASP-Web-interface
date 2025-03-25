@@ -23,9 +23,6 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     // First, start spider scan
     const spiderScanId = await zapService.startSpiderScan(scanTargetUrl);
     
-    // Then start active scan
-    const activeScanId = await zapService.startActiveScan(scanTargetUrl);
-    
     // Create scan entry and store initial metadata
     const scanData = await scanService.createScan(scanTargetUrl);
     console.log('scanData:', scanData);
@@ -39,6 +36,9 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     
     // Wait for spider to complete
     await zapService.waitForSpiderToComplete(spiderScanId);
+    
+    // Only start active scan after spider scan is complete
+    const activeScanId = await zapService.startActiveScan(scanTargetUrl);
     
     // Update with active scan ID
     await scanService.updateScan(scanData.uuid, {
