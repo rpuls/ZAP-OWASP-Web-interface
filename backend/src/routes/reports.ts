@@ -4,6 +4,7 @@ import path from 'path';
 import axios from 'axios';
 import { generatePdfReport } from '../services/pdf';
 import { scanService } from '../services/scanService';
+import { zapService } from '../services/zapService';
 
 const router = Router();
 
@@ -34,41 +35,15 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
     }
 
     // Get scan alerts from ZAP
-    const alertsResponse = await axios.get('/JSON/core/view/alerts/', {
-      params: {
-        scanId: scanMetadata.activeScanId,
-        start: 0,
-        count: 100,
-        riskId: ''  // Get all risk levels
-      },
-      baseURL: `http://${process.env.ZAP_API_URL}:8080`,
-      headers: process.env.ZAP_API_KEY ? {
-        'X-ZAP-API-Key': process.env.ZAP_API_KEY
-      } : undefined,
-      timeout: 30000,
-      validateStatus: null
-    });
-
-    const alerts = alertsResponse.data.alerts;
-    if (!alerts || !Array.isArray(alerts)) {
-      return res.status(500).json({ error: 'Failed to fetch scan results' });
-    }
+    const alerts = await zapService.getAlerts(scanMetadata.activeScanId);
 
     // Get scan status from ZAP
-    const statusResponse = await axios.get('/JSON/ascan/view/status/', {
-      params: { scanId: scanMetadata.activeScanId },
-      baseURL: `http://${process.env.ZAP_API_URL}:8080`,
-      headers: process.env.ZAP_API_KEY ? {
-        'X-ZAP-API-Key': process.env.ZAP_API_KEY
-      } : undefined,
-      timeout: 30000,
-      validateStatus: null
-    });
+    const statusResponse = await zapService.checkActiveScanStatus(scanMetadata.activeScanId);
 
     const scanDetails = {
       targetUrl: scanMetadata.url,
       startTime: scanMetadata.timestamp,
-      status: statusResponse.data.status === '100' ? 'FINISHED' : 'IN PROGRESS'
+      status: statusResponse.status === 100 ? 'FINISHED' : 'IN PROGRESS'
     };
     const filepath = await generatePdfReport(alerts, scanDetails);
     

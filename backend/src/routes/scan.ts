@@ -1,13 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import axios from 'axios';
-import { ScanRequest, ZapScanResponse, ZapStatusResponse } from '../types';
+import { ScanRequest } from '../types';
 import { scanService } from '../services/scanService';
+import { zapService } from '../services/zapService';
 
-// Get public URL from environment
-const publicUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
-  ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-  : process.env.PUBLIC_URL || 'http://localhost:3001';
 
 const router = Router();
 
@@ -16,92 +13,36 @@ const ScanRequestSchema = z.object({
   url: z.string().url(),
 });
 
-async function waitForSpiderToComplete(spiderId: string): Promise<void> {
-  while (true) {
-    const response = await axios.get<{ status: number }>('/zap/JSON/spider/view/status/', {
-      baseURL: publicUrl,
-      params: { scanId: spiderId },
-      timeout: 30000,
-      validateStatus: null
-    });
-
-    if (response.data.status >= 100) {
-      break;
-    }
-
-    // Wait 2 seconds before checking again
-    await new Promise(resolve => setTimeout(resolve, 2000));
-  }
-}
-
 // POST /api/v1/scans - Start a new scan
 router.post('/', async (req: ScanRequest, res: Response) => {
   try {
     console.log('Received scan request:', req.body);
-    const { url } = ScanRequestSchema.parse(req.body);
-
-    const zapUrl = process.env.ZAP_API_URL;
-    if (!zapUrl) {
-      throw new Error('ZAP_API_URL environment variable is not set');
-    }
+    const { url: scanTargetUrl } = ScanRequestSchema.parse(req.body);
     
     // First, start spider scan
-    console.log('Starting spider scan...');
-    const spiderFormData = new URLSearchParams();
-    spiderFormData.append('url', decodeURIComponent(url));
-    spiderFormData.append('recurse', 'true');
-    spiderFormData.append('maxChildren', '10');  // Limit depth for faster scanning
-    spiderFormData.append('contextName', '');
-    spiderFormData.append('subtreeOnly', 'false');
-
-    const spiderResponse = await axios.post<{ scan: string }>('/zap/JSON/spider/action/scan/', spiderFormData, {
-      baseURL: publicUrl,
-      timeout: 30000,
-      validateStatus: null,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    });
-    console.log('Spider scan response:', spiderResponse.data);
-
-    // Wait for spider to complete
-    await waitForSpiderToComplete(spiderResponse.data.scan);
-    console.log('Spider scan completed');
+    const spiderScanId = await zapService.startSpiderScan(scanTargetUrl);
     
     // Then start active scan
-    console.log('Starting active scan...');
-    const formData = new URLSearchParams();
-    formData.append('url', decodeURIComponent(url));
-    formData.append('recurse', 'true');
-    formData.append('inScopeOnly', 'false');
-
-    const response = await axios.post<ZapScanResponse>('/zap/JSON/ascan/action/scan/', formData, {
-      baseURL: publicUrl,
-      timeout: 30000,
-      validateStatus: null,
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    });
-    console.log('Active scan response:', response.data);
+    const activeScanId = await zapService.startActiveScan(scanTargetUrl);
     
     // Create scan entry and store initial metadata
-    const scanData = await scanService.createScan(url);
+    const scanData = await scanService.createScan(scanTargetUrl);
     console.log('scanData:', scanData);
+    
     // Update with spider scan ID and status
     await scanService.updateScan(scanData.uuid, {
       status: 'spider-scanning',
-      spiderScanId: spiderResponse.data.scan
+      spiderScanId: spiderScanId
     });
     console.log('Scan metadata updated with spider scan ID');
+    
     // Wait for spider to complete
-    await waitForSpiderToComplete(spiderResponse.data.scan);
-    console.log('Spider scan completed');
+    await zapService.waitForSpiderToComplete(spiderScanId);
     
     // Update with active scan ID
     await scanService.updateScan(scanData.uuid, {
       status: 'active-scanning',
-      activeScanId: response.data.scan,
+      activeScanId: activeScanId,
       progress: 0
     });
     console.log('Scan metadata updated with active scan ID');
@@ -109,7 +50,7 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     res.json({
       uuid: scanData.uuid,
       status: 'started',
-      url,
+      url: scanTargetUrl,
     });
   } catch (error) {
     console.error('Scan error:', error);
@@ -184,19 +125,12 @@ router.get('/:uuid', async (req: Request, res: Response) => {
     }
     
     // Check active scan status
-    const response = await axios.get<ZapStatusResponse>('/zap/JSON/ascan/view/status/', {
-      baseURL: publicUrl,
-      params: {
-        scanId: scanMetadata.activeScanId
-      },
-      timeout: 30000,
-      validateStatus: null
-    });
-    console.log('Active scan status response:', response.data);
+    const statusResponse = await zapService.checkActiveScanStatus(scanMetadata.activeScanId);
+    console.log('Active scan status response:', statusResponse);
 
     // Handle invalid or error responses from ZAP
-    if (!response.data || response.data.status === undefined) {
-      console.error('Invalid response from ZAP:', response.data);
+    if (!statusResponse || statusResponse.status === undefined) {
+      console.error('Invalid response from ZAP:', statusResponse);
       return res.json({
         uuid,
         status: null,
@@ -204,13 +138,13 @@ router.get('/:uuid', async (req: Request, res: Response) => {
         error: {
           message: 'Scan failed - Lost connection to ZAP service',
           code: 'ZAP_CONNECTION_ERROR',
-          details: response.data
+          details: statusResponse
         }
       });
     }
     
     // Calculate progress
-    const progress = Math.min(response.data.status, 100);
+    const progress = Math.min(statusResponse.status, 100);
     const isComplete = progress >= 100;
     
     // Update with latest progress
@@ -228,22 +162,7 @@ router.get('/:uuid', async (req: Request, res: Response) => {
     if (isComplete) {
       try {
         // Get alerts when complete
-        const alertsResponse = await axios.get('/zap/JSON/core/view/alerts/', {
-          baseURL: publicUrl,
-          params: {
-            start: 0,
-            count: 100,
-            riskId: ''  // Get all risk levels
-          },
-          timeout: 30000,
-          validateStatus: null
-        });
-
-        if (!alertsResponse.data || !Array.isArray(alertsResponse.data.alerts)) {
-          throw new Error('Invalid alerts response from ZAP');
-        }
-
-        results = alertsResponse.data.alerts;
+        results = await zapService.getAlerts(scanMetadata.activeScanId);
       } catch (alertError) {
         console.error('Failed to fetch alerts:', alertError);
         return res.json({

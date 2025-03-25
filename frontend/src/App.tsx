@@ -29,7 +29,7 @@ function App() {
         </Group>
         <ScanForm />
         
-        <Stack align="center" style={{ marginTop: '3rem' }}>
+        {/* <Stack align="center" style={{ marginTop: '3rem' }}>
           <Group gap="xs">
             <Anchor href="https://funkyton.com/" target="_blank">Blog</Anchor>
             <Text>•</Text>
@@ -43,7 +43,7 @@ function App() {
               <img src={funkytonLogo} alt="Funkyton Logo" style={{ height: '30px' }} />
             </Group>
           </Anchor>
-        </Stack>
+        </Stack> */}
       </div>
     </MantineProvider>
   );
