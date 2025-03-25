@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import { generatePdfReport } from '../services/pdf';
-import { scanCache } from '../services/scanCache';
+import { persistence } from '../services/persistence';
 
 const router = Router();
 
@@ -23,7 +23,7 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
     }
 
     // Get scan metadata from cache
-    const scanMetadata = scanCache.getScanMetadata(uuid);
+    const scanMetadata = await persistence.getScanMetadata(uuid);
     if (!scanMetadata) {
       return res.status(404).json({ error: 'Scan metadata not found' });
     }

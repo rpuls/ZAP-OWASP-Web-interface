@@ -48,10 +48,7 @@ This template automatically launches the required [ZAP docker container](https:/
 
 1. Make sure to have Docker imgae `zaproxy/zap-stable:latest` running with the following start command:
 ```bash
-docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 \
-  -config api.disablekey=true \
-  -config api.addrs.addr.name=.* \
-  -config api.addrs.addr.regex=true
+docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true
 ```
 2. Clone the project: Launch on Railway and eject [watch how](https://www.youtube.com/watch?v=LJFek8JP8TE). Alternatively, clone this repo or fork it.
 3. Install dependencies:

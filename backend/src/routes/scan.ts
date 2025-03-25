@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import axios from 'axios';
 import { ScanRequest, ZapScanResponse, ZapStatusResponse } from '../types';
-import { scanCache, ScanStatus } from '../services/scanCache';
+import { persistence } from '../services/persistence';
 
 // Get public URL from environment
 const publicUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
@@ -86,24 +86,25 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     console.log('Active scan response:', response.data);
     
     // Create scan entry and store initial metadata
-    const scanData = scanCache.createScan(url);
-
+    const scanData = await persistence.createScan(url);
+    console.log('scanData:', scanData);
     // Update with spider scan ID and status
-    scanCache.updateScan(scanData.uuid, {
+    await persistence.updateScan(scanData.uuid, {
       status: 'spider-scanning',
       spiderScanId: spiderResponse.data.scan
     });
-
+    console.log('Scan metadata updated with spider scan ID');
     // Wait for spider to complete
     await waitForSpiderToComplete(spiderResponse.data.scan);
     console.log('Spider scan completed');
     
     // Update with active scan ID
-    scanCache.updateScan(scanData.uuid, {
+    await persistence.updateScan(scanData.uuid, {
       status: 'active-scanning',
       activeScanId: response.data.scan,
       progress: 0
     });
+    console.log('Scan metadata updated with active scan ID');
 
     res.json({
       uuid: scanData.uuid,
@@ -140,7 +141,8 @@ router.get('/:uuid', async (req: Request, res: Response) => {
     console.log('Checking status for scan:', uuid);
 
     // Get scan metadata
-    const scanMetadata = scanCache.getScanMetadata(uuid);
+    const scanMetadata = await persistence.getScanMetadata(uuid);
+    console.log('Scan metadata:', scanMetadata);
     if (!scanMetadata) {
       return res.status(404).json({
         error: {
@@ -212,7 +214,7 @@ router.get('/:uuid', async (req: Request, res: Response) => {
     const isComplete = progress >= 100;
     
     // Update cache with latest progress
-    scanCache.updateScan(uuid, {
+    await persistence.updateScan(uuid, {
       progress,
       status: isComplete ? 'completed' : 'active-scanning'
     });
