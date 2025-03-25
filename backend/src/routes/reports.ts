@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 import { generatePdfReport } from '../services/pdf';
-import { persistence } from '../services/persistence';
+import { scanService } from '../services/scanService';
 
 const router = Router();
 
@@ -22,8 +22,8 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
       return res.status(400).json({ error: 'Missing uuid' });
     }
 
-    // Get scan metadata from cache
-    const scanMetadata = await persistence.getScanMetadata(uuid);
+    // Get scan metadata from service (will check cache first, then DB if needed)
+    const scanMetadata = await scanService.getScanMetadata(uuid);
     if (!scanMetadata) {
       return res.status(404).json({ error: 'Scan metadata not found' });
     }

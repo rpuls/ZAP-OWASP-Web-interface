@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import axios from 'axios';
 import { ScanRequest, ZapScanResponse, ZapStatusResponse } from '../types';
-import { persistence } from '../services/persistence';
+import { scanService } from '../services/scanService';
 
 // Get public URL from environment
 const publicUrl = process.env.RAILWAY_PUBLIC_DOMAIN 
@@ -86,10 +86,10 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     console.log('Active scan response:', response.data);
     
     // Create scan entry and store initial metadata
-    const scanData = await persistence.createScan(url);
+    const scanData = await scanService.createScan(url);
     console.log('scanData:', scanData);
     // Update with spider scan ID and status
-    await persistence.updateScan(scanData.uuid, {
+    await scanService.updateScan(scanData.uuid, {
       status: 'spider-scanning',
       spiderScanId: spiderResponse.data.scan
     });
@@ -99,7 +99,7 @@ router.post('/', async (req: ScanRequest, res: Response) => {
     console.log('Spider scan completed');
     
     // Update with active scan ID
-    await persistence.updateScan(scanData.uuid, {
+    await scanService.updateScan(scanData.uuid, {
       status: 'active-scanning',
       activeScanId: response.data.scan,
       progress: 0
@@ -141,7 +141,7 @@ router.get('/:uuid', async (req: Request, res: Response) => {
     console.log('Checking status for scan:', uuid);
 
     // Get scan metadata
-    const scanMetadata = await persistence.getScanMetadata(uuid);
+    const scanMetadata = await scanService.getScanMetadata(uuid);
     console.log('Scan metadata:', scanMetadata);
     if (!scanMetadata) {
       return res.status(404).json({
@@ -213,11 +213,16 @@ router.get('/:uuid', async (req: Request, res: Response) => {
     const progress = Math.min(response.data.status, 100);
     const isComplete = progress >= 100;
     
-    // Update cache with latest progress
-    await persistence.updateScan(uuid, {
+    // Update with latest progress
+    await scanService.updateScan(uuid, {
       progress,
       status: isComplete ? 'completed' : 'active-scanning'
     });
+    
+    // If scan is complete, mark it as completed in DB and remove from cache
+    if (isComplete && progress >= 100) {
+      await scanService.completeScan(uuid);
+    }
 
     let results = null;
     if (isComplete) {
