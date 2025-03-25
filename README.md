@@ -110,6 +110,11 @@ The project is organized as a monorepo containing both frontend and backend:
 - Download PDF report of scan result.
 - Backend proxy to ZAP service.
 - Optional database persistence for scan results.
+- **Scan scheduling system**:
+  - Schedule scans to run at specific times
+  - Configure repeat patterns (daily, weekly, monthly)
+  - Automatic execution of scheduled scans
+  - Real-time monitoring of scheduled scan status
 
 ### Database Integration
 

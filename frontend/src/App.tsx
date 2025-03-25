@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { MantineProvider, createTheme, Group, Stack, Text, Anchor, Tabs, rem } from '@mantine/core';
 import { ScanForm } from './components/ScanForm';
 import { ScanHistoryTable } from './components/ScanHistoryTable';
-import { SchedulingPlaceholder } from './components/SchedulingPlaceholder';
+import { ScheduleList } from './components/ScheduleList';
 import { useQuery } from '@tanstack/react-query';
 import { getScanHistory } from './services/api';
 import '@mantine/core/styles.css';
@@ -60,7 +60,7 @@ function App() {
           <Tabs.List>
             <Tabs.Tab value="scan-now">Scan Now</Tabs.Tab>
             <Tabs.Tab value="scan-history" disabled={!hasScans}>Scan History</Tabs.Tab>
-            <Tabs.Tab value="scheduling" disabled>Scheduling</Tabs.Tab>
+            <Tabs.Tab value="scheduling">Scheduling</Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="scan-now" pt={rem(16)}>
@@ -75,7 +75,7 @@ function App() {
           </Tabs.Panel>
           
           <Tabs.Panel value="scheduling" pt={rem(16)}>
-            <SchedulingPlaceholder />
+            <ScheduleList />
           </Tabs.Panel>
         </Tabs>
         

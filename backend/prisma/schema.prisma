@@ -7,6 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Schedule {
+  id          String   @id @default(uuid())
+  url         String
+  name        String?
+  createdAt   DateTime @default(now())
+  
+  // Scheduling information
+  startTime   DateTime
+  repeatPattern String?  // e.g., "daily", "weekly", "monthly", "none"
+  repeatDays  Int[]     // For weekly: [1,3,5] = Mon,Wed,Fri; For monthly: [1,15] = 1st and 15th
+  
+  // Status tracking
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  isActive    Boolean   @default(true)
+  
+  // Related scans
+  scans       Scan[]
+}
+
 model Scan {
   uuid         String   @id
   url          String
@@ -20,6 +40,10 @@ model Scan {
   
   // Relation to alerts
   alerts       Alert[]
+  
+  // Optional relation to schedule
+  scheduleId  String?
+  schedule    Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 }
 
 model Alert {

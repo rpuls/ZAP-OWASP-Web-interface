@@ -12,6 +12,7 @@ export interface ScanMetadata {
   spiderScanId?: string;
   activeScanId?: string;
   error?: string;
+  scheduleId?: string;
 }
 
 export interface AlertCounts {

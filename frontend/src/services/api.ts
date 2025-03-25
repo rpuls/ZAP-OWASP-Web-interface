@@ -50,6 +50,34 @@ export interface ScanHistoryResponse {
   };
 }
 
+export interface Schedule {
+  id: string;
+  url: string;
+  name?: string;
+  createdAt: Date;
+  startTime: Date;
+  repeatPattern?: string;
+  repeatDays: number[];
+  lastRunAt?: Date;
+  nextRunAt?: Date;
+  isActive: boolean;
+}
+
+export interface ScheduleCreateInput {
+  url: string;
+  name?: string;
+  startTime: Date;
+  repeatPattern?: string;
+  repeatDays?: number[];
+  isActive?: boolean;
+}
+
+export interface ScheduleUpdateInput extends Partial<ScheduleCreateInput> {}
+
+export interface SchedulesResponse {
+  schedules: Schedule[];
+}
+
 export async function startScan(url: string): Promise<ScanResponse> {
   const response = await axios.post(`${API_URL}/scans`, { url });
   return response.data;
@@ -105,4 +133,68 @@ export async function generateReport(uuid: string): Promise<void> {
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+}
+
+// Schedule API functions
+
+export async function getSchedules(): Promise<SchedulesResponse> {
+  const response = await axios.get(`${API_URL}/schedules`);
+  
+  // Convert string dates to Date objects
+  const data = response.data;
+  data.schedules = data.schedules.map((schedule: any) => ({
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  }));
+  
+  return data;
+}
+
+export async function getScheduleById(id: string): Promise<Schedule> {
+  const response = await axios.get(`${API_URL}/schedules/${id}`);
+  
+  // Convert string dates to Date objects
+  const schedule = response.data;
+  return {
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  };
+}
+
+export async function createSchedule(data: ScheduleCreateInput): Promise<Schedule> {
+  const response = await axios.post(`${API_URL}/schedules`, data);
+  
+  // Convert string dates to Date objects
+  const schedule = response.data;
+  return {
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  };
+}
+
+export async function updateSchedule(id: string, data: ScheduleUpdateInput): Promise<Schedule> {
+  const response = await axios.put(`${API_URL}/schedules/${id}`, data);
+  
+  // Convert string dates to Date objects
+  const schedule = response.data;
+  return {
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  };
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  await axios.delete(`${API_URL}/schedules/${id}`);
 }
