@@ -22,7 +22,7 @@ export function ScheduleCard({ schedule, onEdit, onDelete, onToggleActive }: Sch
     if (!schedule.repeatPattern || schedule.repeatPattern === 'none') {
       return 'One-time';
     }
-    
+
     switch (schedule.repeatPattern) {
       case 'daily':
         return 'Daily';
@@ -42,30 +42,37 @@ export function ScheduleCard({ schedule, onEdit, onDelete, onToggleActive }: Sch
           <Text fw={500} size="lg" truncate>
             {schedule.name || schedule.url}
           </Text>
-          <Menu
-            position="bottom-end"
-            opened={menuOpened}
-            onChange={setMenuOpened}
-          >
+          <Group gap="xs">
+            <Badge
+              color={schedule.isActive ? 'green' : 'gray'}
+              variant="light"
+            >
+              {schedule.isActive ? 'Active' : 'Inactive'}
+            </Badge>
+            <Menu
+              position="bottom-end"
+              opened={menuOpened}
+              onChange={setMenuOpened}
+            >
             <Menu.Target>
               <ActionIcon variant="subtle" color="gray">
                 <IconDots size={16} />
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item 
+              <Menu.Item
                 leftSection={<IconEdit size={14} />}
                 onClick={() => onEdit(schedule)}
               >
                 Edit
               </Menu.Item>
-              <Menu.Item 
+              <Menu.Item
                 leftSection={schedule.isActive ? <IconPlayerPause size={14} /> : <IconPlayerPlay size={14} />}
                 onClick={() => onToggleActive(schedule.id, !schedule.isActive)}
               >
                 {schedule.isActive ? 'Deactivate' : 'Activate'}
               </Menu.Item>
-              <Menu.Item 
+              <Menu.Item
                 leftSection={<IconTrash size={14} />}
                 color="red"
                 onClick={() => onDelete(schedule.id)}
@@ -74,6 +81,7 @@ export function ScheduleCard({ schedule, onEdit, onDelete, onToggleActive }: Sch
               </Menu.Item>
             </Menu.Dropdown>
           </Menu>
+          </Group>
         </Group>
       </Card.Section>
 
@@ -82,29 +90,29 @@ export function ScheduleCard({ schedule, onEdit, onDelete, onToggleActive }: Sch
           <Text size="sm" c="dimmed" w={100}>URL:</Text>
           <Text size="sm" truncate>{schedule.url}</Text>
         </Group>
-        
+
         <Group gap="xs">
           <Text size="sm" c="dimmed" w={100}>Start time:</Text>
           <Text size="sm">{formatDate(schedule.startTime)} at {formatTime(schedule.startTime)}</Text>
         </Group>
-        
+
         <Group gap="xs">
           <Text size="sm" c="dimmed" w={100}>Est. finish:</Text>
           <Text size="sm">{formatDate(estimatedFinishTime)} at {formatTime(estimatedFinishTime)}</Text>
         </Group>
-        
+
         <Group gap="xs">
           <Text size="sm" c="dimmed" w={100}>Repeat:</Text>
           <Text size="sm">{getRepeatText()}</Text>
         </Group>
-        
+
         {schedule.lastRunAt && (
           <Group gap="xs">
             <Text size="sm" c="dimmed" w={100}>Last run:</Text>
             <Text size="sm">{formatDate(schedule.lastRunAt)} at {formatTime(schedule.lastRunAt)}</Text>
           </Group>
         )}
-        
+
         {schedule.nextRunAt && schedule.repeatPattern !== 'none' && (
           <Group gap="xs">
             <Text size="sm" c="dimmed" w={100}>Next run:</Text>
@@ -112,22 +120,6 @@ export function ScheduleCard({ schedule, onEdit, onDelete, onToggleActive }: Sch
           </Group>
         )}
       </Stack>
-
-      <Group mt="md" justify="apart">
-        <Badge 
-          color={schedule.isActive ? 'green' : 'gray'}
-          variant="light"
-        >
-          {schedule.isActive ? 'Active' : 'Inactive'}
-        </Badge>
-        <Button 
-          variant="light" 
-          size="xs"
-          onClick={() => onEdit(schedule)}
-        >
-          Edit
-        </Button>
-      </Group>
     </Card>
   );
 }

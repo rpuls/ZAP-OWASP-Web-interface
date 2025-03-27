@@ -97,19 +97,23 @@ export function ScheduleRunnerStatus() {
           Check interval: {status?.checkIntervalMs ? `${status.checkIntervalMs / 1000} seconds` : 'N/A'}
         </Text>
         
-        <Divider />
-        
-        <Group justify="space-between">
-          <Text size="sm">Manually trigger a check for due schedules:</Text>
-          <Button 
-            leftSection={<IconRefresh size={16} />}
-            size="xs"
-            onClick={() => triggerCheck()}
-            loading={isTriggering}
-          >
-            Run Check Now
-          </Button>
-        </Group>
+        {(schedulesData?.schedules?.length || 0) > 0 && (
+          <>
+            <Divider />
+            
+            <Group justify="space-between">
+              <Text size="sm">Manually trigger a check for due schedules:</Text>
+              <Button 
+                leftSection={<IconRefresh size={16} />}
+                size="xs"
+                onClick={() => triggerCheck()}
+                loading={isTriggering}
+              >
+                Run Check Now
+              </Button>
+            </Group>
+          </>
+        )}
         
         {triggerError && (
           <Text size="sm" color="red">

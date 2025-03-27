@@ -3,6 +3,20 @@ import { Scan } from '@prisma/client';
 
 export type ScanStatus = 'pending' | 'pinging-target' | 'spider-scanning' | 'active-scanning' | 'completed' | 'failed';
 
+// Define in-progress statuses for easier filtering
+export const IN_PROGRESS_STATUSES: ScanStatus[] = ['pending', 'pinging-target', 'spider-scanning', 'active-scanning'];
+export const COMPLETED_STATUSES: ScanStatus[] = ['completed', 'failed'];
+
+// Helper function to check if a scan is in progress
+export function isInProgress(status: ScanStatus): boolean {
+  return IN_PROGRESS_STATUSES.includes(status);
+}
+
+// Helper function to check if a scan is completed
+export function isCompleted(status: ScanStatus): boolean {
+  return COMPLETED_STATUSES.includes(status);
+}
+
 // export interface Scan {
 //   uuid: string;
 //   url: string;
@@ -49,7 +63,8 @@ class ScanCacheService {
       spiderScanId: null,
       activeScanId: null,
       error: null,
-      scheduleId: null
+      scheduleId: null,
+      lastCheckedAt: new Date()
     };
     
     this.scanMap.set(scanData.uuid, scanData);

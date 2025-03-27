@@ -36,6 +36,7 @@ model Scan {
   spiderScanId String?
   activeScanId String?
   error        String?
+  lastCheckedAt DateTime?
   
   // Relation to alerts
   alerts       Alert[]

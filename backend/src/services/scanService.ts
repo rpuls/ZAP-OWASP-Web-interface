@@ -1,5 +1,5 @@
 import { PrismaClient, Scan } from '@prisma/client';
-import { scanCache, ScanStatus, ScanSummary } from './scanCache';
+import { scanCache, ScanStatus, ScanSummary, IN_PROGRESS_STATUSES } from './scanCache';
 import { dbConnection } from './persistence/db-connection';
 import { zapService } from './zapService';
 
@@ -70,7 +70,8 @@ class ScanService {
             spiderScanId: dbScan.spiderScanId ?? null,
             activeScanId: dbScan.activeScanId ?? null,
             error: dbScan.error ?? null,
-            scheduleId: dbScan.scheduleId ?? null
+            scheduleId: dbScan.scheduleId ?? null,
+            lastCheckedAt: dbScan.lastCheckedAt ? new Date(dbScan.lastCheckedAt) : null
           };
         }
       } catch (error) {
@@ -83,6 +84,9 @@ class ScanService {
 
   // Update scan metadata
   async updateScan(uuid: string, updates: Partial<Scan>): Promise<Scan | undefined> {
+    // Don't update lastCheckedAt if we're marking the scan as failed or completed
+    const updateLastChecked = updates.status !== 'failed' && updates.status !== 'completed';
+    
     // Always update cache
     const updatedScan = scanCache.updateScan(uuid, updates);
 
@@ -91,9 +95,13 @@ class ScanService {
       try {
         await this.prisma.scan.update({
           where: { uuid },
-          data: updates
+          data: {
+            ...updates,
+            ...(updateLastChecked ? { lastCheckedAt: new Date() } : {})
+          }
         });
-        console.log(`Scan ${uuid} updated in database`);
+        
+        console.log(`Scan ${uuid} updated in database (status: ${updates.status})`);
       } catch (error) {
         console.error('Failed to update scan in database:', error);
       }
@@ -151,9 +159,9 @@ class ScanService {
   async getActiveScans(): Promise<Scan[]> {
     const activeScans: Scan[] = [];
     
-    // Get active scans from cache
+    // Get in-progress scans from cache
     const cacheScans = Array.from(scanCache.getAllScans().values());
-    const activeFromCache = cacheScans.filter(scan => scan.status === 'active');
+    const activeFromCache = cacheScans.filter(scan => IN_PROGRESS_STATUSES.includes(scan.status as ScanStatus));
     activeScans.push(...activeFromCache);
     
     // If DB connected, also get active scans from DB
@@ -162,7 +170,7 @@ class ScanService {
         const dbScans = await this.prisma.scan.findMany({
           where: {
             status: {
-              equals: 'active'
+              in: IN_PROGRESS_STATUSES,
             }
           },
           orderBy: {
@@ -183,7 +191,8 @@ class ScanService {
               spiderScanId: dbScan.spiderScanId,
               activeScanId: dbScan.activeScanId,
               error: dbScan.error,
-              scheduleId: dbScan.scheduleId
+              scheduleId: dbScan.scheduleId,
+              lastCheckedAt: dbScan.lastCheckedAt ? new Date(dbScan.lastCheckedAt) : null
             });
           }
         }

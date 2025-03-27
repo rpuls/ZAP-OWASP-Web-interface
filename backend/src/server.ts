@@ -9,6 +9,7 @@ import { reportsRouter } from './routes/reports';
 import { scheduleRouter } from './routes/schedule';
 import { dbConnection } from './services/persistence/db-connection';
 import { scheduleRunnerService } from './services/scheduleRunnerService';
+import { scanHeartbeatMonitor } from './services/scanHeartbeatMonitorService';
 
 // Load .env from root directory
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -20,12 +21,16 @@ console.log('DATABASE_URL from env:', process.env.DATABASE_URL);
 (async () => {
   await dbConnection.initialize(process.env.DATABASE_URL);
   
-  // Start the schedule runner if database is connected
+  // Start the schedule runner and scan heartbeat monitor if database is connected
   if (dbConnection.isConnected) {
     // Check for due schedules every minute (60000 ms)
     scheduleRunnerService.start(60000);
+    
+    // Start the scan heartbeat monitor to check for stale scans every 5 minutes (300000 ms)
+    scanHeartbeatMonitor.start(300000);
+    console.log('Scan heartbeat monitor started');
   } else {
-    console.log('Database not connected, schedule runner not started');
+    console.log('Database not connected, schedule runner and scan heartbeat monitor not started');
   }
 })();
 
@@ -125,8 +130,10 @@ const server = app.listen(port, () => {
 process.on('SIGINT', async () => {
   console.log('Shutting down server...');
   
-  // Stop the schedule runner
+  // Stop the schedule runner and scan heartbeat monitor
   scheduleRunnerService.stop();
+  scanHeartbeatMonitor.stop();
+  console.log('Schedule runner and scan heartbeat monitor stopped');
   
   // Close the server
   server.close(() => {
