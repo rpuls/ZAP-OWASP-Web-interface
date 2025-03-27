@@ -17,24 +17,7 @@ import {
 import { IconChevronDown, IconChevronRight, IconDownload } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { getScanHistory, generateReport, ScanSummary, AlertCounts } from '../services/api';
-
-// Format date nicely
-function formatDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(date);
-}
-
-// Format time with hours and minutes
-function formatTime(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(date);
-}
+import { formatFullDateTime } from '../utils/dateUtils';
 
 // Format duration from milliseconds to readable format
 function formatDuration(ms: number): string {
@@ -189,7 +172,7 @@ export function ScanHistoryTable() {
                   <Table.Td>
                     <Text truncate maw={300}>{scan.url}</Text>
                   </Table.Td>
-                  <Table.Td>{formatDate(scan.startedAt)}</Table.Td>
+                  <Table.Td>{formatFullDateTime(scan.startedAt)}</Table.Td>
                   <Table.Td>
                     <Badge color={getStatusColor(scan.status)}>
                       {formatStatus(scan.status)}
@@ -220,9 +203,9 @@ export function ScanHistoryTable() {
                             <Divider />
                             <Group>
                               <Stack gap="xs">
-                                <Text size="sm">Started: {formatTime(scan.startedAt)}</Text>
+                                <Text size="sm">Started: {formatFullDateTime(scan.startedAt)}</Text>
                                 {scan.completedAt && (
-                                  <Text size="sm">Completed: {formatTime(scan.completedAt)}</Text>
+                                  <Text size="sm">Completed: {formatFullDateTime(scan.completedAt)}</Text>
                                 )}
                                 {scan.duration && (
                                   <Text size="sm">Duration: {formatDuration(scan.duration)}</Text>

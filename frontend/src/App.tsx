@@ -14,6 +14,9 @@ const theme = createTheme({
   fontFamily: 'system-ui, -apple-system, sans-serif',
 });
 
+// Standard width for most UI components
+const STANDARD_WIDTH = 800;
+
 function App() {
   const [activeTab, setActiveTab] = useState<string | null>('scan-now');
   const [hasScans, setHasScans] = useState(false);
@@ -40,7 +43,7 @@ function App() {
   return (
     <MantineProvider theme={theme}>
       <div style={{
-        maxWidth: '800px',
+        width: '100%',
         margin: '2rem auto',
         padding: '0 1rem',
       }}>
@@ -56,21 +59,21 @@ function App() {
         </Group>
         
         <Tabs value={activeTab} onChange={handleTabChange} mb={rem(16)}>
-          <Tabs.List>
+          <Tabs.List style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>
             <Tabs.Tab value="scan-now">Scan Now</Tabs.Tab>
             <Tabs.Tab value="scan-history" disabled={!hasScans}>Scan History</Tabs.Tab>
             <Tabs.Tab value="scheduling">Scheduling</Tabs.Tab>
           </Tabs.List>
 
-          <Tabs.Panel value="scan-now" pt={rem(16)}>
+          <Tabs.Panel value="scan-now" pt={rem(16)} style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>
             <ScanForm />
           </Tabs.Panel>
           
-          <Tabs.Panel value="scan-history" pt={rem(16)}>
+          <Tabs.Panel value="scan-history" pt={rem(16)} style={{ width: '100%' }}>
             <ScanHistoryTable />
           </Tabs.Panel>
           
-          <Tabs.Panel value="scheduling" pt={rem(16)}>
+          <Tabs.Panel value="scheduling" pt={rem(16)} style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>
             <ScheduleList />
           </Tabs.Panel>
         </Tabs>
