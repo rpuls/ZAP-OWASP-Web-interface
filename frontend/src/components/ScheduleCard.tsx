@@ -27,19 +27,8 @@ export function ScheduleCard({ schedule, onEdit, onDelete, onToggleActive }: Sch
       case 'daily':
         return 'Daily';
       case 'weekly':
-        if (schedule.repeatDays && schedule.repeatDays.length > 0) {
-          const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-          return `Weekly on ${schedule.repeatDays.map(d => days[d]).join(', ')}`;
-        }
         return 'Weekly';
       case 'monthly':
-        if (schedule.repeatDays && schedule.repeatDays.length > 0) {
-          const dayStrings = schedule.repeatDays.map(d => {
-            const suffix = ['st', 'nd', 'rd'][((d + 90) % 100 - 10) % 10 - 1] || 'th';
-            return `${d}${suffix}`;
-          });
-          return `Monthly on ${dayStrings.join(', ')}`;
-        }
         return 'Monthly';
       default:
         return schedule.repeatPattern;

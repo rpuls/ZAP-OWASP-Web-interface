@@ -8,9 +8,9 @@
     "build": "prisma generate && tsc && ts-node scripts/post-build.ts",
     "start": "node dist/server.js",
     "testpdf": "ts-node-dev test/pdf-test.ts",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:generate": "prisma generate --env-file=../.env",
+    "prisma:migrate": "prisma migrate dev --env-file=../.env",
+    "prisma:studio": "prisma studio --env-file=../.env"
   },
   "dependencies": {
     "@prisma/client": "^5.10.2",

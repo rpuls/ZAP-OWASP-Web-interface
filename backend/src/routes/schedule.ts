@@ -11,7 +11,6 @@ const ScheduleCreateSchema = z.object({
   name: z.string().optional(),
   startTime: z.string().transform(val => new Date(val)),
   repeatPattern: z.enum(['none', 'daily', 'weekly', 'monthly']).optional(),
-  repeatDays: z.array(z.number()).optional(),
   isActive: z.boolean().optional()
 });
 

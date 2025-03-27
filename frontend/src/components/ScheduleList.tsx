@@ -4,7 +4,6 @@ import {
   Button, 
   Group, 
   Text, 
-  SimpleGrid, 
   Paper, 
   Modal,
   Alert,
@@ -204,7 +203,7 @@ export function ScheduleList() {
             <Text ta="center">No scheduled scans yet. Click "Add New Schedule" to create one.</Text>
           </Paper>
         ) : (
-          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+          <Stack gap="md">
             {schedules.map(schedule => (
               <ScheduleCard
                 key={schedule.id}
@@ -214,7 +213,7 @@ export function ScheduleList() {
                 onToggleActive={handleToggleActive}
               />
             ))}
-          </SimpleGrid>
+          </Stack>
         )}
       </Stack>
 

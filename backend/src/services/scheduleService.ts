@@ -7,7 +7,6 @@ export interface ScheduleCreateInput {
   name?: string;
   startTime: Date;
   repeatPattern?: string; // 'none', 'daily', 'weekly', 'monthly'
-  repeatDays?: number[];
   isActive?: boolean;
 }
 
@@ -33,8 +32,8 @@ class ScheduleService {
       throw new Error('Database connection required for scheduling');
     }
 
-    // Calculate next run time
-    const nextRunAt = this.calculateNextRunTime(data.startTime, data.repeatPattern, data.repeatDays);
+    // Set next run time to the same as start time
+    const nextRunAt = new Date(data.startTime);
 
     // Check for overlapping schedules
     await this.checkForOverlaps(data.startTime, nextRunAt, undefined);
@@ -46,7 +45,6 @@ class ScheduleService {
           name: data.name,
           startTime: data.startTime,
           repeatPattern: data.repeatPattern || 'none',
-          repeatDays: data.repeatDays || [],
           nextRunAt,
           isActive: data.isActive !== undefined ? data.isActive : true
         }
@@ -106,12 +104,25 @@ class ScheduleService {
 
     // Calculate next run time if relevant fields are updated
     let nextRunAt = currentSchedule.nextRunAt;
-    if (data.startTime || data.repeatPattern !== undefined || data.repeatDays) {
+    let lastRunAt = data.lastRunAt !== undefined ? data.lastRunAt : currentSchedule.lastRunAt;
+    
+    if (data.startTime || data.repeatPattern !== undefined) {
       const startTime = data.startTime || currentSchedule.startTime;
       const repeatPattern = data.repeatPattern !== undefined ? data.repeatPattern : currentSchedule.repeatPattern;
-      const repeatDays = data.repeatDays || currentSchedule.repeatDays;
+      const now = new Date();
       
-      nextRunAt = this.calculateNextRunTime(startTime, repeatPattern, repeatDays);
+      // If this is a one-time schedule that has already run,
+      // and the start time is being updated to a future date,
+      // clear the lastRunAt field so it can run again
+      if ((!repeatPattern || repeatPattern === 'none') && 
+          lastRunAt !== null && 
+          data.startTime && 
+          data.startTime > now) {
+        console.log(`Resetting lastRunAt for one-time schedule ${currentSchedule.id} with new future start time`);
+        lastRunAt = null;
+      }
+      
+      nextRunAt = this.calculateNextRunTime(startTime, repeatPattern);
     }
 
     // Check for overlapping schedules
@@ -129,8 +140,7 @@ class ScheduleService {
         data: {
           ...data,
           nextRunAt,
-          // Only update repeatDays if provided
-          repeatDays: data.repeatDays !== undefined ? data.repeatDays : undefined
+          lastRunAt
         }
       });
     } catch (error) {
@@ -201,81 +211,63 @@ class ScheduleService {
     }
   }
 
-  // Calculate the next run time based on repeat pattern
+  // Calculate the next run time based on repeat pattern - simplified version
   private calculateNextRunTime(
     startTime: Date,
-    repeatPattern?: string | null,
-    repeatDays?: number[]
+    repeatPattern?: string | null
   ): Date {
-    // For 'none' or null, next run is 15 minutes after start
+    // For 'none' or null, next run time is the same as start time
     if (!repeatPattern || repeatPattern === 'none') {
-      return new Date(startTime.getTime() + 15 * 60 * 1000);
+      return new Date(startTime);
     }
 
-    const nextRun = new Date(startTime);
+    const nextRun = new Date(startTime); // Start with the original start time
+    const now = new Date();
     
+    // Calculate the next occurrence based on repeat pattern
     switch (repeatPattern) {
       case 'daily':
-        // Next run is 24 hours after start
-        nextRun.setDate(nextRun.getDate() + 1);
+        // Add days until we get a future date
+        while (nextRun <= now) {
+          nextRun.setDate(nextRun.getDate() + 1);
+        }
         break;
         
       case 'weekly':
-        if (!repeatDays || repeatDays.length === 0) {
-          // Default to same day next week
+        // Add weeks until we get a future date
+        while (nextRun <= now) {
           nextRun.setDate(nextRun.getDate() + 7);
-        } else {
-          // Find the next day of the week that matches repeatDays
-          // Days are 0-6 (Sunday-Saturday)
-          const currentDay = startTime.getDay();
-          const nextDays = repeatDays
-            .map(d => (d < currentDay ? d + 7 : d)) // Ensure all days are after current day
-            .filter(d => d > currentDay)
-            .sort((a, b) => a - b);
-            
-          if (nextDays.length > 0) {
-            // Use the next available day
-            const daysToAdd = nextDays[0] - currentDay;
-            nextRun.setDate(nextRun.getDate() + daysToAdd);
-          } else {
-            // If no days after current day, use the first day next week
-            const daysToAdd = 7 + (repeatDays[0] - currentDay);
-            nextRun.setDate(nextRun.getDate() + daysToAdd);
-          }
         }
         break;
         
       case 'monthly':
-        if (!repeatDays || repeatDays.length === 0) {
-          // Default to same day next month
+        // Add months until we get a future date
+        while (nextRun <= now) {
+          // Get the current day of month before adding a month
+          const currentDay = nextRun.getDate();
+          
+          // Add a month
           nextRun.setMonth(nextRun.getMonth() + 1);
-        } else {
-          // Find the next day of the month that matches repeatDays
-          const currentDay = startTime.getDate();
-          const nextDays = repeatDays
-            .filter(d => d > currentDay)
-            .sort((a, b) => a - b);
-            
-          if (nextDays.length > 0) {
-            // Use the next available day this month
-            nextRun.setDate(nextDays[0]);
-          } else {
-            // If no days after current day, use the first day next month
-            nextRun.setMonth(nextRun.getMonth() + 1);
-            nextRun.setDate(repeatDays[0]);
+          
+          // Check if the day changed (handles month length differences)
+          if (nextRun.getDate() !== currentDay) {
+            // If the day changed, it means we landed on a non-existent date
+            // (e.g., March 31 -> April 31, which becomes May 1)
+            // Set to the last day of the previous month
+            nextRun.setDate(0);
           }
         }
         break;
         
       default:
-        // For unknown patterns, default to 15 minutes after start
-        nextRun.setTime(nextRun.getTime() + 15 * 60 * 1000);
+        // For unknown patterns, return start time
+        return new Date(startTime);
     }
     
     return nextRun;
   }
 
-  // Process due schedules - this would be called by a cron job or similar
+  // Process due schedules - simplified version
   async processDueSchedules(): Promise<void> {
     if (!this.isDbConnected || !this.prisma) {
       console.log('Database connection required for processing schedules');
@@ -286,82 +278,66 @@ class ScheduleService {
     console.log(`Checking for due schedules at ${now.toISOString()}`);
     
     try {
-      // Find all schedules regardless of start time
-      const allSchedules = await this.prisma.schedule.findMany();
-      
-      console.log(`Found ${allSchedules.length} total schedules in database`);
-      
-      // Log details of each schedule for debugging
-      allSchedules.forEach(schedule => {
-        console.log(`Schedule ${schedule.id}:
-          URL: ${schedule.url}
-          Name: ${schedule.name || 'N/A'}
-          Start Time: ${schedule.startTime.toISOString()}
-          Repeat Pattern: ${schedule.repeatPattern || 'none'}
-          Last Run At: ${schedule.lastRunAt ? schedule.lastRunAt.toISOString() : 'never'}
-          Next Run At: ${schedule.nextRunAt ? schedule.nextRunAt.toISOString() : 'N/A'}
-          Is Active: ${schedule.isActive ? 'Yes' : 'No'}
-        `);
+      // Find all active schedules that are due to run
+      const dueSchedules = await this.prisma.schedule.findMany({
+        where: {
+          isActive: true,
+          OR: [
+            // If never run before and start time is in the past or now
+            {
+              lastRunAt: null,
+              startTime: {
+                lte: now
+              }
+            },
+            // If has a next run time and it's in the past or now
+            // AND it's not a one-time schedule that has already run
+            {
+              nextRunAt: {
+                lte: now
+              },
+              NOT: {
+                repeatPattern: 'none',
+                lastRunAt: { not: null }
+              }
+            }
+          ]
+        }
       });
       
-      // Filter to only include active schedules
-      const activeSchedules = allSchedules.filter(schedule => schedule.isActive);
-      
-      // Filter to only include schedules that are due to run
-      const dueSchedules = activeSchedules.filter(schedule => {
-        // If never run before and start time is in the past or now, it's due
-        if (!schedule.lastRunAt && schedule.startTime <= now) {
-          console.log(`Schedule ${schedule.id} is due: never run before and start time is in the past`);
-          return true;
-        }
-        
-        // If has a next run time and it's in the past or now, it's due
-        if (schedule.nextRunAt && schedule.nextRunAt <= now) {
-          console.log(`Schedule ${schedule.id} is due: next run time ${schedule.nextRunAt.toISOString()} is in the past`);
-          return true;
-        }
-        
-        console.log(`Schedule ${schedule.id} is not due to run yet`);
-        return false;
-      });
-      
-      console.log(`Found ${dueSchedules.length} schedules due to run out of ${activeSchedules.length} active schedules`);
+      console.log(`Found ${dueSchedules.length} schedules due to run`);
       
       // Process each due schedule
       for (const schedule of dueSchedules) {
         try {
           console.log(`Processing schedule ${schedule.id} for URL ${schedule.url}`);
           
-          // Update the lastRunAt field immediately to prevent duplicate runs
-          // even if the server restarts during a scan
-          const lastRunAt = now;
-          await this.updateSchedule(schedule.id, {
-            lastRunAt
-          });
-          console.log(`Updated lastRunAt for schedule ${schedule.id} to prevent duplicate runs`);
+          // Calculate the next run time
+          const nextRunAt = this.calculateNextRunTime(schedule.startTime, schedule.repeatPattern);
           
+          // Update lastRunAt and nextRunAt in a single operation
+          await this.prisma.schedule.update({
+            where: { id: schedule.id },
+            data: {
+              lastRunAt: now,
+              nextRunAt
+            }
+          });
+          
+          console.log(`Updated schedule times: lastRunAt=${now.toISOString()}, nextRunAt=${nextRunAt ? nextRunAt.toISOString() : 'null'}`);
+          
+          // Start the scan (fire and forget)
           const scan = await scanService.startFullScan(schedule.url);
-               // Update the scan with the schedule ID
+          
+          // Link the scan to the schedule
           await scanService.updateScan(scan.uuid, {
             scheduleId: schedule.id
           });
           
-          // Calculate the next run time based on repeat pattern
-          const nextRunAt = this.calculateNextRunTime(
-            schedule.startTime,
-            schedule.repeatPattern,
-            schedule.repeatDays
-          );
-          
-          // Update the schedule with the next run time
-          await this.updateSchedule(schedule.id, {
-            nextRunAt
-          });
-          
-          console.log(`Started scheduled scan ${scan.uuid} for schedule ${schedule.id}`);
-          console.log(`Next run scheduled for: ${nextRunAt.toISOString()}`);
+          console.log(`Started scan ${scan.uuid} for schedule ${schedule.id}`);
         } catch (error) {
           console.error(`Failed to process schedule ${schedule.id}:`, error);
+          // Continue with next schedule
         }
       }
     } catch (error) {

@@ -58,7 +58,6 @@ export interface Schedule {
   createdAt: Date;
   startTime: Date;
   repeatPattern?: string;
-  repeatDays: number[];
   lastRunAt?: Date;
   nextRunAt?: Date;
   isActive: boolean;
@@ -69,7 +68,6 @@ export interface ScheduleCreateInput {
   name?: string;
   startTime: Date;
   repeatPattern?: string;
-  repeatDays?: number[];
   isActive?: boolean;
 }
 

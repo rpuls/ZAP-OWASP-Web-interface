@@ -3,6 +3,7 @@ import { Paper, Text, Group, Button, Badge, Divider, Stack } from '@mantine/core
 import { IconRefresh } from '@tabler/icons-react';
 import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getSchedules } from '../services/api';
 
 interface RunnerStatus {
   isRunning: boolean;
@@ -16,8 +17,8 @@ export function ScheduleRunnerStatus() {
   // Fetch runner status
   const { 
     data: status, 
-    isLoading, 
-    error 
+    isLoading: isLoadingStatus, 
+    error: statusError 
   } = useQuery<RunnerStatus>({
     queryKey: ['scheduleRunnerStatus'],
     queryFn: async () => {
@@ -25,6 +26,15 @@ export function ScheduleRunnerStatus() {
       return response.data;
     },
     refetchInterval: 10000 // Refresh every 10 seconds
+  });
+  
+  // Fetch schedules to check if there are any
+  const {
+    data: schedulesData,
+    isLoading: isLoadingSchedules
+  } = useQuery({
+    queryKey: ['schedules'],
+    queryFn: getSchedules
   });
 
   // Mutation to trigger a check for due schedules
@@ -50,7 +60,7 @@ export function ScheduleRunnerStatus() {
     }
   });
 
-  if (isLoading) {
+  if (isLoadingStatus || isLoadingSchedules) {
     return (
       <Paper p="md" withBorder>
         <Text>Loading runner status...</Text>
@@ -58,7 +68,7 @@ export function ScheduleRunnerStatus() {
     );
   }
 
-  if (error) {
+  if (statusError) {
     return (
       <Paper p="md" withBorder>
         <Text color="red">Error loading runner status</Text>
@@ -72,10 +82,14 @@ export function ScheduleRunnerStatus() {
         <Group justify="space-between">
           <Text fw={500}>Schedule Runner Status</Text>
           <Badge 
-            color={status?.isRunning ? 'green' : 'red'} 
+            color={status?.isRunning && (schedulesData?.schedules?.length || 0) > 0 ? 'green' : 'gray'} 
             variant="light"
           >
-            {status?.isRunning ? 'Running' : 'Stopped'}
+            {status?.isRunning && (schedulesData?.schedules?.length || 0) > 0 
+              ? 'Running' 
+              : (schedulesData?.schedules?.length || 0) === 0 
+                ? 'Idle (No Schedules)' 
+                : 'Stopped'}
           </Badge>
         </Group>
         
