@@ -4,6 +4,24 @@ import { AlertList } from './AlertList';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { startScan, getScanStatus, getScanAlerts, getActiveScans, ScanStatus } from '../services/api';
 
+// Helper function to get status text based on scan status
+const getScanStatusText = (status: string, progress: number): string => {
+  switch (status) {
+    case 'pinging-target':
+      return 'Checking if target website is reachable...';
+    case 'spider-scanning':
+      return 'Spider scan in progress...';
+    case 'active-scanning':
+      return `Active scan progress: ${progress}%`;
+    case 'completed':
+      return 'Scan completed';
+    case 'failed':
+      return 'Scan failed';
+    default:
+      return `Scan progress: ${progress}%`;
+  }
+};
+
 export function ScanForm() {
   const [url, setUrl] = useState(() => localStorage.getItem('lastScanUrl') || '');
   const [uuid, setUuid] = useState<string | null>(null);
@@ -186,7 +204,7 @@ export function ScanForm() {
               ) : (
                 <>
                   <Text size="sm" fw={500}>
-                    {scanStatus.status === 'spider-scanning' ? 'Spider scan in progress...' : `Active scan progress: ${scanStatus.progress}%`}
+                    {getScanStatusText(scanStatus.status, scanStatus.progress)}
                   </Text>
                   <Progress 
                     value={scanStatus.progress} 

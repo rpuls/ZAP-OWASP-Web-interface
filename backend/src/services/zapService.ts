@@ -288,6 +288,33 @@ class ZapService {
     this.validateZapApiUrl();
     return `http://${process.env.ZAP_API_URL}:8080`;
   }
+  
+  /**
+   * Check if a URL is reachable
+   * @param url The URL to check
+   * @returns True if the URL is reachable, false otherwise
+   */
+  async isUrlReachable(url: string): Promise<boolean> {
+    try {
+      console.log(`Checking if URL is reachable: ${url}`);
+      
+      // Use axios to make a HEAD request to the URL
+      // HEAD is preferred over GET as it doesn't download the full page content
+      const response = await axios.head(url, {
+        timeout: 10000, // 10 second timeout
+        validateStatus: () => true // Don't throw on any status code
+      });
+      
+      // Consider 2xx and 3xx status codes as success
+      const isReachable = response.status >= 200 && response.status < 400;
+      console.log(`URL ${url} is ${isReachable ? 'reachable' : 'not reachable'} (status: ${response.status})`);
+      
+      return isReachable;
+    } catch (error) {
+      console.error(`Error checking if URL is reachable: ${url}`, error);
+      return false;
+    }
+  }
 }
 
 // Export singleton instance using lazy initialization

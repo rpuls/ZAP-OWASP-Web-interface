@@ -93,6 +93,11 @@ docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -
 - `cd backend && pnpm dev` to start the Node.js backend.
 - `pnpm build && pnpm start` to compile and run from compiled source.
 
+#### Demo sites to scan
+
+- `https://google-gruyere.appspot.com/start` for a quick scan
+- `https://https://juice-shop.herokuapp.com/` for a longer deeper scan
+
 ### Project Structure
 
 The project is organized as a monorepo containing both frontend and backend:

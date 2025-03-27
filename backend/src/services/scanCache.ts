@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Scan } from '@prisma/client';
 
-export type ScanStatus = 'pending' | 'spider-scanning' | 'active-scanning' | 'completed' | 'failed';
+export type ScanStatus = 'pending' | 'pinging-target' | 'spider-scanning' | 'active-scanning' | 'completed' | 'failed';
 
 // export interface Scan {
 //   uuid: string;

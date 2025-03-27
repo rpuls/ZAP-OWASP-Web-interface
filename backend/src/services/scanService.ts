@@ -400,7 +400,22 @@ class ScanService {
   }
 
   async processFullScan(scan: Scan): Promise<void> {
-    // First, start spider scan
+    // First, check if the URL is reachable
+    await this.updateScan(scan.uuid, {
+      status: 'pinging-target'
+    });
+    const isReachable = await zapService.isUrlReachable(scan.url);
+    
+    if (!isReachable) {
+      console.error(`URL ${scan.url} is not reachable`);
+      await this.updateScan(scan.uuid, {
+        status: 'failed',
+        error: 'Unable to reach website. Please verify that the site you are trying to scan is online.'
+      });
+      return;
+    }
+    
+    // Start spider scan
     console.log(`Starting spider scan for scan ${scan.uuid}`);
     const spiderScanId = await zapService.startSpiderScan(scan.url);
 
