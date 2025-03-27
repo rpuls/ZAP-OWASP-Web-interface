@@ -1,19 +1,20 @@
 import { v4 as uuidv4 } from 'uuid';
+import { Scan } from '@prisma/client';
 
 export type ScanStatus = 'pending' | 'spider-scanning' | 'active-scanning' | 'completed' | 'failed';
 
-export interface ScanMetadata {
-  uuid: string;
-  url: string;
-  startedAt: Date;
-  completedAt?: Date;
-  status: ScanStatus;
-  progress: number;
-  spiderScanId?: string;
-  activeScanId?: string;
-  error?: string;
-  scheduleId?: string;
-}
+// export interface Scan {
+//   uuid: string;
+//   url: string;
+//   startedAt: Date;
+//   completedAt?: Date;
+//   status: ScanStatus;
+//   progress: number;
+//   spiderScanId?: string;
+//   activeScanId?: string;
+//   error?: string;
+//   scheduleId?: string;
+// }
 
 export interface AlertCounts {
   high: number;
@@ -35,26 +36,31 @@ export interface ScanSummary {
 }
 
 class ScanCacheService {
-  private scanMap: Map<string, ScanMetadata> = new Map();
+  private scanMap: Map<string, Scan> = new Map();
 
-  createScan(url: string): ScanMetadata {
-    const scanData: ScanMetadata = {
+  createScan(url: string): Scan {
+    const scanData: Scan = {
       uuid: uuidv4(),
       url,
       startedAt: new Date(),
+      completedAt: null,
       status: 'pending',
-      progress: 0
+      progress: 0,
+      spiderScanId: null,
+      activeScanId: null,
+      error: null,
+      scheduleId: null
     };
     
     this.scanMap.set(scanData.uuid, scanData);
     return scanData;
   }
 
-  getScanMetadata(uuid: string): ScanMetadata | undefined {
+  getScan(uuid: string): Scan | undefined {
     return this.scanMap.get(uuid);
   }
 
-  updateScan(uuid: string, updates: Partial<ScanMetadata>): ScanMetadata | undefined {
+  updateScan(uuid: string, updates: Partial<Scan>): Scan | undefined {
     const scan = this.scanMap.get(uuid);
     if (!scan) return undefined;
 
@@ -64,7 +70,7 @@ class ScanCacheService {
   }
 
   // Get all scans from cache
-  getAllScans(): Map<string, ScanMetadata> {
+  getAllScans(): Map<string, Scan> {
     return new Map(this.scanMap);
   }
 
@@ -81,7 +87,8 @@ class ScanCacheService {
 
   // Helper method to get activeScanId by uuid
   getActiveScanId(uuid: string): string | undefined {
-    return this.scanMap.get(uuid)?.activeScanId;
+    const activeScanId = this.scanMap.get(uuid)?.activeScanId;
+    return activeScanId ?? undefined;
   }
 }
 

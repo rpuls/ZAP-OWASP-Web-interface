@@ -17,7 +17,6 @@ const theme = createTheme({
 function App() {
   const [activeTab, setActiveTab] = useState<string | null>('scan-now');
   const [hasScans, setHasScans] = useState(false);
-  const [currentScanUuid, setCurrentScanUuid] = useState<string | null>(null);
   
   // Check if there are any scans to enable/disable the Scan History tab
   const { data: scanHistoryData } = useQuery({
@@ -64,10 +63,7 @@ function App() {
           </Tabs.List>
 
           <Tabs.Panel value="scan-now" pt={rem(16)}>
-            <ScanForm 
-              currentUuid={currentScanUuid} 
-              onScanStart={(uuid) => setCurrentScanUuid(uuid)} 
-            />
+            <ScanForm />
           </Tabs.Panel>
           
           <Tabs.Panel value="scan-history" pt={rem(16)}>

@@ -11,14 +11,15 @@ export interface ScanResponse {
 
 export interface ScanStatus {
   uuid: string;
-  status: number | null;
-  isComplete: boolean;
-  results: any[] | null;
-  error?: {
-    message: string;
-    code: string;
-    details?: unknown;
-  };
+  url: string;
+  startedAt: Date;
+  completedAt: Date | null;
+  status: string;
+  progress: number;
+  spiderScanId: string | null;
+  activeScanId: string | null;
+  error: string | null;
+  scheduleId: string | null;
 }
 
 export interface AlertCounts {
@@ -85,7 +86,34 @@ export async function startScan(url: string): Promise<ScanResponse> {
 
 export async function getScanStatus(uuid: string): Promise<ScanStatus> {
   const response = await axios.get(`${API_URL}/scans/${uuid}`);
+  
+  // Convert string dates to Date objects
+  const scan = response.data;
+  return {
+    ...scan,
+    startedAt: new Date(scan.startedAt),
+    completedAt: scan.completedAt ? new Date(scan.completedAt) : null
+  };
+}
+
+export async function getScanAlerts(uuid: string): Promise<any[]> {
+  const response = await axios.get(`${API_URL}/scans/${uuid}/alerts`);
   return response.data;
+}
+
+export interface ActiveScansResponse {
+  scans: ScanStatus[];
+}
+
+export async function getActiveScans(): Promise<ScanStatus[]> {
+  const response = await axios.get<ActiveScansResponse>(`${API_URL}/scans/active`);
+  
+  // Convert string dates to Date objects
+  return response.data.scans.map(scan => ({
+    ...scan,
+    startedAt: new Date(scan.startedAt),
+    completedAt: scan.completedAt ? new Date(scan.completedAt) : null
+  }));
 }
 
 export async function getScanHistory(page: number = 1, limit: number = 10): Promise<ScanHistoryResponse> {

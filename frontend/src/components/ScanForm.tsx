@@ -1,24 +1,40 @@
-import { useState, useEffect, useMemo } from 'react';
-import { TextInput, Button, Paper, Progress, Text, Stack, rem, Divider } from '@mantine/core';
+import { useState, useEffect, useRef } from 'react';
+import { TextInput, Button, Paper, Progress, Text, Stack, rem, Divider, Select } from '@mantine/core';
 import { AlertList } from './AlertList';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { startScan, getScanStatus } from '../services/api';
+import { startScan, getScanStatus, getScanAlerts, getActiveScans, ScanStatus } from '../services/api';
 
-interface ScanFormProps {
-  currentUuid: string | null;
-  onScanStart: (uuid: string) => void;
-}
-
-export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
+export function ScanForm() {
   const [url, setUrl] = useState(() => localStorage.getItem('lastScanUrl') || '');
-  const [uuid, setUuid] = useState<string | null>(currentUuid);
+  const [uuid, setUuid] = useState<string | null>(null);
+  const [activeScans, setActiveScans] = useState<ScanStatus[]>([]);
+  const defaultSetRef = useRef(false);
+  const [hasActiveScan, setHasActiveScan] = useState(false);
 
-  // Update local uuid state when prop changes
+  // Fetch active scans on component mount
   useEffect(() => {
-    if (currentUuid !== uuid) {
-      setUuid(currentUuid);
-    }
-  }, [currentUuid]);
+    const fetchActiveScans = async () => {
+      if (!defaultSetRef.current) {
+        try {
+          const scans = await getActiveScans();
+          if (scans && scans.length > 0) {
+            setActiveScans(scans);
+            setHasActiveScan(true);
+            
+            setUuid(scans[0].uuid);
+            setUrl(scans[0].url);
+            // Mark that we've set the default
+            defaultSetRef.current = true;
+          }
+        } catch (error) {
+          console.error('Failed to fetch active scans:', error);
+          defaultSetRef.current = true; // Mark as set even on error to prevent retries
+        }
+      }
+    };
+    
+    fetchActiveScans();
+  }, []);
 
   const { mutate: startScanMutation, isPending: isStarting } = useMutation({
     mutationFn: startScan,
@@ -26,8 +42,20 @@ export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
       console.log('Scan started successfully:', data);
       setIsComplete(false); // Reset completion state for new scan
       setUuid(data.uuid);
-      onScanStart(data.uuid); // Update parent component
       localStorage.setItem('lastScanUrl', url); // Save URL to localStorage
+      setHasActiveScan(true);
+      
+      // Add the new scan to active scans
+      const updateActiveScans = async () => {
+        try {
+          const scans = await getActiveScans();
+          setActiveScans(scans);
+        } catch (error) {
+          console.error('Failed to update active scans:', error);
+        }
+      };
+      
+      updateActiveScans();
     },
     onError: (error) => {
       console.error('Failed to start scan:', error);
@@ -48,17 +76,49 @@ export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
     queryFn: () => getScanStatus(uuid!),
     enabled: !!uuid && !isComplete,
     refetchInterval: (query) => 
-      query.state.data?.error || query.state.data?.isComplete ? false : 1000
+      query.state.data?.error || query.state.data?.status === 'completed' ? false : 1000
+  });
+
+  // Fetch alerts only when scan is completed
+  const { data: alerts } = useQuery({
+    queryKey: ['scanAlerts', uuid],
+    queryFn: () => getScanAlerts(uuid!),
+    enabled: !!uuid && scanStatus?.status === 'completed',
   });
 
   // Update completion state when scan is complete
   useEffect(() => {
-    if (scanStatus?.isComplete && !isComplete) {
+    if (scanStatus?.status === 'completed' && !isComplete) {
       setIsComplete(true);
+      
+      // Refresh active scans list when a scan completes
+      const refreshActiveScans = async () => {
+        try {
+          const scans = await getActiveScans();
+          setActiveScans(scans);
+          setHasActiveScan(scans.length > 0);
+        } catch (error) {
+          console.error('Failed to refresh active scans:', error);
+        }
+      };
+      
+      refreshActiveScans();
     }
-  }, [scanStatus?.isComplete, isComplete]);
+  }, [scanStatus?.status, isComplete]);
 
-  const isStalled = dataUpdatedAt && (Date.now() - dataUpdatedAt > TIMEOUT_THRESHOLD) && !scanStatus?.isComplete;
+  const isStalled = dataUpdatedAt && (Date.now() - dataUpdatedAt > TIMEOUT_THRESHOLD) && scanStatus?.status !== 'completed';
+
+  // Handle scan selection change
+  const handleScanChange = (value: string | null) => {
+    if (value) {
+      const selectedScan = activeScans.find(scan => scan.uuid === value);
+      if (selectedScan) {
+        setUuid(value);
+        setUrl(selectedScan.url);
+        setIsComplete(false); // Reset completion state for new selection
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,22 +132,35 @@ export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
     <Paper p="md" withBorder>
       <form onSubmit={handleSubmit}>
         <Stack gap={rem(16)}>
-          <TextInput
-            required
-            label="URL to Scan"
-            description="Enter the URL you want to scan for vulnerabilities"
-            placeholder="https://example.com"
-            value={url}
-            onChange={(e) => {
-              setUrl(e.target.value);
-            }}
-            disabled={isStarting}
-          />
+          {activeScans.length > 1 ? (
+            <Select
+              label="Active Scans"
+              description="Select an active scan to view its progress"
+              data={activeScans.map(scan => ({
+                value: scan.uuid,
+                label: scan.url
+              }))}
+              value={uuid}
+              onChange={handleScanChange}
+            />
+          ) : (
+            <TextInput
+              required
+              label="URL to Scan"
+              description={hasActiveScan ? "Currently scanning this URL" : "Enter the URL you want to scan for vulnerabilities"}
+              placeholder="https://example.com"
+              value={url}
+              onChange={(e) => {
+                setUrl(e.target.value);
+              }}
+              disabled={hasActiveScan || isStarting}
+            />
+          )}
           
           <Button
             type="submit"
             loading={isStarting}
-            disabled={!url || isStarting}
+            disabled={!url || isStarting || hasActiveScan}
           >
             {isStarting ? 'Starting Scan...' : 'Start Scan'}
           </Button>
@@ -103,7 +176,7 @@ export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
               {scanStatus.error || isStalled ? (
                 <>
                   <Text color="red" fw={500}>
-                    {scanStatus.error ? scanStatus.error.message : 
+                    {scanStatus.error ? scanStatus.error : 
                       "The scan is taking longer than usual."}
                   </Text>
                   <Text size="sm" c="dimmed">
@@ -113,25 +186,25 @@ export function ScanForm({ currentUuid, onScanStart }: ScanFormProps) {
               ) : (
                 <>
                   <Text size="sm" fw={500}>
-                    {scanStatus.status === 0 ? 'Spider scan in progress...' : `Active scan progress: ${scanStatus.status}%`}
+                    {scanStatus.status === 'spider-scanning' ? 'Spider scan in progress...' : `Active scan progress: ${scanStatus.progress}%`}
                   </Text>
                   <Progress 
-                    value={scanStatus.status ?? 0} 
+                    value={scanStatus.progress} 
                     size="xl" 
                     radius="xl" 
                     striped 
-                    animated={!scanStatus.isComplete}
-                    color={scanStatus.status === null ? 'red' : undefined}
+                    animated={scanStatus.status !== 'completed'}
+                    color={scanStatus.status === 'failed' ? 'red' : undefined}
                   />
-                  {scanStatus.isComplete && !scanStatus.error && (
+                  {scanStatus.status === 'completed' && !scanStatus.error && (
                     <>
                       <Text color="green" fw={500}>
                         Scan Complete!
                       </Text>
-                      {scanStatus.results && uuid && (
+                      {alerts && alerts.length > 0 && uuid && (
                         <>
                           <Divider my="lg" />
-                          <AlertList alerts={scanStatus.results} uuid={uuid} />
+                          <AlertList alerts={alerts} uuid={uuid} />
                         </>
                       )}
                     </>

@@ -23,7 +23,7 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
     }
 
     // Get scan metadata from service (will check cache first, then DB if needed)
-    const scanMetadata = await scanService.getScanMetadata(uuid);
+    const scanMetadata = await scanService.getScan(uuid);
     if (!scanMetadata) {
       return res.status(404).json({ error: 'Scan metadata not found' });
     }
@@ -36,13 +36,10 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
     // Get alerts using the scanService's getAlerts method
     const alerts = await scanService.getAlerts(uuid, scanMetadata.activeScanId);
 
-    // Get scan status from ZAP
-    const statusResponse = await zapService.checkActiveScanStatus(scanMetadata.activeScanId);
-
     const scanDetails = {
       targetUrl: scanMetadata.url,
       startTime: scanMetadata.startedAt,
-      completedAt: scanMetadata.completedAt
+      completedAt: scanMetadata.completedAt ?? undefined
     };
     const filepath = await generatePdfReport(alerts, scanDetails);
     

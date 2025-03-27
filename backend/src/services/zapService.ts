@@ -49,7 +49,7 @@ class ZapService {
    */
   async startSpiderScan(url: string): Promise<string> {
     this.validateZapApiUrl();
-    console.log('Starting spider scan...');
+    console.log('Starting spider scan for:', url);
     const spiderFormData = new URLSearchParams();
     spiderFormData.append('url', decodeURIComponent(url));
     spiderFormData.append('recurse', 'true');
@@ -92,7 +92,6 @@ class ZapService {
     if (!response.data || response.data.status === undefined) {
       throw new Error('Invalid response from ZAP spider status check');
     }
-
     return response.data.status;
   }
 
@@ -116,13 +115,93 @@ class ZapService {
   }
 
   /**
+   * Check if a URL exists in the ZAP scan tree
+   * @param url The URL to check
+   * @returns True if the URL exists in the scan tree
+   */
+  async checkUrlInScanTree(url: string): Promise<boolean> {
+    this.validateZapApiUrl();
+    try {
+      const response = await axios.get('/zap/JSON/core/view/urls/', {
+        baseURL: this.baseUrl,
+        timeout: 30000,
+        validateStatus: null
+      });
+      
+      if (response.data && Array.isArray(response.data.urls)) {
+        // Log all URLs in the scan tree for debugging
+        console.log('URLs in scan tree:', response.data.urls);
+        
+        // Normalize the target URL for comparison
+        const normalizedTargetUrl = url.toLowerCase().trim();
+        const targetDomain = new URL(normalizedTargetUrl).hostname;
+        
+        // More flexible matching approach
+        for (const treeUrl of response.data.urls) {
+          const normalizedTreeUrl = treeUrl.toLowerCase().trim();
+          
+          // Check for exact match
+          if (normalizedTreeUrl === normalizedTargetUrl) {
+            console.log(`Found exact URL match: ${treeUrl}`);
+            return true;
+          }
+          
+          // Check if tree URL contains the target domain
+          if (normalizedTreeUrl.includes(targetDomain)) {
+            console.log(`Found domain match: ${treeUrl} contains ${targetDomain}`);
+            return true;
+          }
+        }
+        
+        console.log(`No matching URL found for ${url}`);
+        return false;
+      }
+      
+      console.log('No URLs found in scan tree or invalid response format');
+      return false;
+    } catch (error) {
+      console.error('Error checking URL in scan tree:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Wait for a URL to exist in the ZAP scan tree
+   * @param url The URL to wait for
+   * @param timeoutMs Maximum time to wait in milliseconds (default: 15000)
+   * @returns True if the URL was found within the timeout period
+   */
+  async waitForUrlToExistInScanTree(url: string, timeoutMs: number = 15000): Promise<boolean> {
+    this.validateZapApiUrl();
+    console.log(`Waiting for URL to exist in scan tree: ${url} (timeout: ${timeoutMs}ms)`);
+    
+    const startTime = Date.now();
+    let found = false;
+    
+    while (!found && Date.now() - startTime < timeoutMs) {
+      found = await this.checkUrlInScanTree(url);
+      
+      if (found) {
+        console.log(`URL found in scan tree after ${Date.now() - startTime}ms`);
+        return true;
+      }
+      
+      // Wait 500ms before checking again
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    console.warn(`URL not found in scan tree within timeout period (${timeoutMs}ms)`);
+    return false;
+  }
+
+  /**
    * Start an active scan
    * @param url The URL to scan
    * @returns The active scan ID
    */
   async startActiveScan(url: string): Promise<string> {
     this.validateZapApiUrl();
-    console.log('Starting active scan...');
+    console.log('Starting active scan for:', url);
     const formData = new URLSearchParams();
     formData.append('url', decodeURIComponent(url));
     formData.append('recurse', 'true');

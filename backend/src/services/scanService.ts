@@ -1,6 +1,8 @@
-import { PrismaClient } from '@prisma/client';
-import { scanCache, ScanMetadata, ScanStatus, ScanSummary, AlertCounts } from './scanCache';
+import { PrismaClient, Scan } from '@prisma/client';
+import { scanCache, ScanStatus, ScanSummary } from './scanCache';
 import { dbConnection } from './persistence/db-connection';
+import { zapService } from './zapService';
+
 import { ZapAlert } from '../types';
 
 class ScanService {
@@ -15,74 +17,75 @@ class ScanService {
   }
 
   // Create a new scan
-  async createScan(url: string): Promise<ScanMetadata> {
+  async createScan(url: string): Promise<Scan> {
     // Always create in cache first
-    const scanData = scanCache.createScan(url);
-    
+    const scan = scanCache.createScan(url);
+
     // If DB connected, also persist to database
     if (this.isDbConnected && this.prisma) {
       try {
         await this.prisma.scan.create({
           data: {
-            uuid: scanData.uuid,
-            url: scanData.url,
-            startedAt: scanData.startedAt,
-            status: scanData.status,
-            progress: scanData.progress
+            uuid: scan.uuid,
+            url: scan.url,
+            startedAt: scan.startedAt,
+            status: scan.status,
+            progress: scan.progress
           }
         });
-        console.log(`Scan ${scanData.uuid} persisted to database`);
+        console.log(`Scan ${scan.uuid} persisted to database`);
       } catch (error) {
         console.error('Failed to persist scan to database:', error);
         // Continue with cache-only operation
       }
     }
-    
-    return scanData;
+
+    return scan;
   }
 
   // Get scan metadata (from cache or DB)
-  async getScanMetadata(uuid: string): Promise<ScanMetadata | undefined> {
+  async getScan(uuid: string): Promise<Scan | undefined> {
     // Try cache first
-    const cachedScan = scanCache.getScanMetadata(uuid);
+    const cachedScan = scanCache.getScan(uuid);
     if (cachedScan) {
       return cachedScan;
     }
-    
+
     // If not in cache but DB connected, try DB
     if (this.isDbConnected && this.prisma) {
       try {
         const dbScan = await this.prisma.scan.findUnique({
           where: { uuid }
         });
-        
+
         if (dbScan) {
-          // Convert DB record to ScanMetadata
+          // Convert DB record to Scan
           return {
             uuid: dbScan.uuid,
             url: dbScan.url,
             startedAt: new Date(dbScan.startedAt),
-            completedAt: dbScan.completedAt ? new Date(dbScan.completedAt) : undefined,
+            completedAt: dbScan.completedAt ? new Date(dbScan.completedAt) : null,
             status: dbScan.status as ScanStatus,
             progress: dbScan.progress,
-            spiderScanId: dbScan.spiderScanId || undefined,
-            activeScanId: dbScan.activeScanId || undefined,
-            error: dbScan.error || undefined
+            spiderScanId: dbScan.spiderScanId ?? null,
+            activeScanId: dbScan.activeScanId ?? null,
+            error: dbScan.error ?? null,
+            scheduleId: dbScan.scheduleId ?? null
           };
         }
       } catch (error) {
         console.error('Failed to fetch scan from database:', error);
       }
     }
-    
+
     return undefined;
   }
 
   // Update scan metadata
-  async updateScan(uuid: string, updates: Partial<ScanMetadata>): Promise<ScanMetadata | undefined> {
+  async updateScan(uuid: string, updates: Partial<Scan>): Promise<Scan | undefined> {
     // Always update cache
     const updatedScan = scanCache.updateScan(uuid, updates);
-    
+
     // If DB connected, also update DB
     if (this.isDbConnected && this.prisma && updatedScan) {
       try {
@@ -95,23 +98,23 @@ class ScanService {
         console.error('Failed to update scan in database:', error);
       }
     }
-    
+
     return updatedScan;
   }
 
   // Complete a scan - update DB and remove from cache
   async completeScan(uuid: string): Promise<void> {
-    const scan = scanCache.getScanMetadata(uuid);
+    const scan = scanCache.getScan(uuid);
     if (!scan) return;
     const completedAt = new Date();
-    
+
     // Update scan in cache with completedAt
     scanCache.updateScan(uuid, {
       completedAt,
       status: 'completed',
       progress: 100
     });
-    
+
     // If DB connected, ensure scan is persisted with final state
     if (this.isDbConnected && this.prisma) {
       try {
@@ -124,7 +127,7 @@ class ScanService {
           }
         });
         console.log(`Scan ${uuid} marked as completed in database`);
-        
+
         // Remove from cache after successful DB update
         // This is implemented by modifying the Map in scanCache
         const scanMapPrivate = (scanCache as any).scanMap;
@@ -143,6 +146,57 @@ class ScanService {
   getActiveScanId(uuid: string): string | undefined {
     return scanCache.getActiveScanId(uuid);
   }
+  
+  // Get all active scans (status is not 'completed' or 'failed')
+  async getActiveScans(): Promise<Scan[]> {
+    const activeScans: Scan[] = [];
+    
+    // Get active scans from cache
+    const cacheScans = Array.from(scanCache.getAllScans().values());
+    const activeFromCache = cacheScans.filter(scan => 
+      scan.status !== 'completed' && scan.status !== 'failed'
+    );
+    activeScans.push(...activeFromCache);
+    
+    // If DB connected, also get active scans from DB
+    if (this.isDbConnected && this.prisma) {
+      try {
+        const dbScans = await this.prisma.scan.findMany({
+          where: {
+            status: {
+              notIn: ['completed', 'failed']
+            }
+          },
+          orderBy: {
+            progress: 'desc'
+          }
+        });
+        
+        // Add DB scans that aren't already in the list from cache
+        for (const dbScan of dbScans) {
+          if (!activeScans.some(scan => scan.uuid === dbScan.uuid)) {
+            activeScans.push({
+              uuid: dbScan.uuid,
+              url: dbScan.url,
+              startedAt: new Date(dbScan.startedAt),
+              completedAt: dbScan.completedAt ? new Date(dbScan.completedAt) : null,
+              status: dbScan.status as ScanStatus,
+              progress: dbScan.progress,
+              spiderScanId: dbScan.spiderScanId,
+              activeScanId: dbScan.activeScanId,
+              error: dbScan.error,
+              scheduleId: dbScan.scheduleId
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch active scans from database:', error);
+      }
+    }
+    
+    // Sort by progress (highest first)
+    return activeScans.sort((a, b) => b.progress - a.progress);
+  }
 
   // Save alerts to database
   async saveAlerts(scanId: string, alerts: ZapAlert[]): Promise<void> {
@@ -151,7 +205,7 @@ class ScanService {
       try {
         // Create alerts in database with relation to scan
         await Promise.all(
-          alerts.map((alert: ZapAlert) => 
+          alerts.map((alert: ZapAlert) =>
             this.prisma!.alert.create({
               data: {
                 scanId,
@@ -189,7 +243,7 @@ class ScanService {
         const dbAlerts = await this.prisma.alert.findMany({
           where: { scanId }
         });
-        
+
         if (dbAlerts.length > 0) {
           // Convert DB records to ZapAlert format
           return dbAlerts.map(alert => ({
@@ -214,10 +268,10 @@ class ScanService {
         console.error('Failed to fetch alerts from database:', error);
       }
     }
-    
+
     return null; // No alerts found in DB
   }
-  
+
   // Get all scans with pagination
   async getAllScans(page: number = 1, limit: number = 10): Promise<{
     scans: ScanSummary[];
@@ -225,13 +279,13 @@ class ScanService {
   }> {
     const results: ScanSummary[] = [];
     let total = 0;
-    
+
     // Get from database if connected
     if (this.isDbConnected && this.prisma) {
       try {
         // Get total count
         total = await this.prisma.scan.count();
-        
+
         // Get paginated results
         const dbScans = await this.prisma.scan.findMany({
           orderBy: { startedAt: 'desc' },
@@ -244,7 +298,7 @@ class ScanService {
             }
           }
         });
-        
+
         // Convert DB records to ScanSummary format with duration and alert counts
         for (const scan of dbScans) {
           // Get alert counts by risk level
@@ -252,20 +306,20 @@ class ScanService {
             where: { scanId: scan.uuid },
             select: { risk: true }
           });
-          
+
           const alertCounts = {
             high: alerts.filter(a => a.risk === 'High').length,
             medium: alerts.filter(a => a.risk === 'Medium').length,
             low: alerts.filter(a => a.risk === 'Low').length,
             info: alerts.filter(a => a.risk === 'Informational').length,
           };
-          
+
           // Calculate duration if scan is completed
           let duration = undefined;
           if (scan.status === 'completed' && scan.completedAt) {
             duration = new Date(scan.completedAt).getTime() - new Date(scan.startedAt).getTime();
           }
-          
+
           results.push({
             uuid: scan.uuid,
             url: scan.url,
@@ -282,7 +336,7 @@ class ScanService {
         console.error('Failed to fetch scans from database:', error);
       }
     }
-    
+
     // Get from cache and merge (avoiding duplicates)
     const cacheScans = Array.from(scanCache.getAllScans().values());
     for (const cacheScan of cacheScans) {
@@ -292,20 +346,20 @@ class ScanService {
           uuid: cacheScan.uuid,
           url: cacheScan.url,
           startedAt: cacheScan.startedAt,
-          completedAt: cacheScan.completedAt,
-          status: cacheScan.status,
+          completedAt: cacheScan.completedAt ?? undefined,
+          status: cacheScan.status as ScanStatus,
           progress: cacheScan.progress,
           alertCounts: { high: 0, medium: 0, low: 0, info: 0 },
           totalAlerts: 0,
-          duration: cacheScan.completedAt ? 
+          duration: cacheScan.completedAt ?
             cacheScan.completedAt.getTime() - cacheScan.startedAt.getTime() : undefined
         });
       }
     }
-    
+
     // Sort by startedAt (newest first)
     results.sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime());
-    
+
     return {
       scans: results.slice((page - 1) * limit, page * limit),
       total: Math.max(total, results.length)
@@ -322,11 +376,10 @@ class ScanService {
         return dbAlerts;
       }
     }
-    
+
     // If no alerts in DB or DB not connected, try ZAP
     if (activeScanId) {
       try {
-        const { zapService } = require('./zapService');
         const zapAlerts = await zapService.getAlerts(activeScanId);
         console.log(`Retrieved ${zapAlerts.length} alerts from ZAP for scan ${scanId}`);
         return zapAlerts;
@@ -335,11 +388,89 @@ class ScanService {
         throw new Error('Could not retrieve alerts from database or ZAP');
       }
     }
-    
+
     // If we get here, we couldn't get alerts from either source
     throw new Error('Could not retrieve alerts: No database connection and no active scan ID provided');
   }
+
+  async startFullScan(url: string): Promise<Scan> {
+    const scan = await this.createScan(url);
+    this.processFullScan(scan);
+    return scan;
+  }
+
+  async processFullScan(scan: Scan): Promise<void> {
+    // First, start spider scan
+    console.log(`Starting spider scan for scan ${scan.uuid}`);
+    const spiderScanId = await zapService.startSpiderScan(scan.url);
+
+    // Update with spider scan ID and status
+    await this.updateScan(scan.uuid, {
+      status: 'spider-scanning',
+      spiderScanId: spiderScanId
+    });
+    console.log(`Scan metadata updated with spider scan ID: ${spiderScanId}`);
+
+    // Wait for spider to complete
+    await zapService.waitForSpiderToComplete(spiderScanId);
+    console.log(`Spider scan completed for scan ${scan.uuid}`);
+
+    // Wait for URL to exist in scan tree
+    const urlInScanTree = await zapService.waitForUrlToExistInScanTree(scan.url);
+    if (!urlInScanTree) {
+      console.error(`URL ${scan.url} not found in scan tree after spider scan`);
+      await this.updateScan(scan.uuid, {
+        status: 'failed',
+        error: 'URL not found in scan tree after spider scan'
+      });
+      return;
+    }
+
+    // Only start active scan after spider scan is complete and URL is in scan tree
+    const activeScanId = await zapService.startActiveScan(scan.url);
+
+    // Update with active scan ID
+    await this.updateScan(scan.uuid, {
+      status: 'active-scanning',
+      activeScanId: activeScanId,
+      progress: 0
+    });
+    console.log(`Active scan started with ID: ${activeScanId}`);
+
+    // Wait for active scan to complete
+    console.log(`Waiting for active scan to complete...`);
+    let isComplete = false;
+    let progress = 0;
+
+    while (!isComplete) {
+      const statusResponse = await zapService.checkActiveScanStatus(activeScanId);
+      progress = Math.min(statusResponse.status, 100);
+      isComplete = progress >= 100;
+
+      await this.updateScan(scan.uuid, {
+        progress,
+        status: isComplete ? 'completed' : 'active-scanning'
+      });
+
+      if (!isComplete) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    console.log(`Active scan completed for scheduled scan ${scan.uuid}`);
+
+    const alerts = await zapService.getAlerts(activeScanId);
+    if (alerts && alerts.length > 0) {
+      await this.saveAlerts(scan.uuid, alerts);
+      console.log(`Saved ${alerts.length} alerts for scheduled scan ${scan.uuid}`);
+    }
+
+    // Mark scan as completed
+    await this.completeScan(scan.uuid);
+    console.log(`Marked scheduled scan ${scan.uuid} as completed`);
+  }
 }
+
 
 // Export singleton instance
 export const scanService = new ScanService();

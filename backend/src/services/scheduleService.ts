@@ -1,7 +1,6 @@
 import { PrismaClient, Schedule } from '@prisma/client';
 import { dbConnection } from './persistence/db-connection';
 import { scanService } from './scanService';
-import { zapService } from './zapService';
 
 export interface ScheduleCreateInput {
   url: string;
@@ -341,72 +340,11 @@ class ScheduleService {
           });
           console.log(`Updated lastRunAt for schedule ${schedule.id} to prevent duplicate runs`);
           
-          // Create scan entry and store initial metadata
-          const scanData = await scanService.createScan(schedule.url);
-          
-          // Update the scan with the schedule ID
-          await scanService.updateScan(scanData.uuid, {
+          const scan = await scanService.startFullScan(schedule.url);
+               // Update the scan with the schedule ID
+          await scanService.updateScan(scan.uuid, {
             scheduleId: schedule.id
           });
-          
-          // First, start spider scan
-          console.log(`Starting spider scan for scheduled scan ${scanData.uuid}`);
-          const spiderScanId = await zapService.startSpiderScan(schedule.url);
-          
-          // Update with spider scan ID and status
-          await scanService.updateScan(scanData.uuid, {
-            status: 'spider-scanning',
-            spiderScanId: spiderScanId
-          });
-          console.log(`Scan metadata updated with spider scan ID: ${spiderScanId}`);
-          
-          // Wait for spider to complete
-          await zapService.waitForSpiderToComplete(spiderScanId);
-          console.log(`Spider scan completed for scheduled scan ${scanData.uuid}`);
-          
-          // Only start active scan after spider scan is complete
-          const activeScanId = await zapService.startActiveScan(schedule.url);
-          
-          // Update with active scan ID
-          await scanService.updateScan(scanData.uuid, {
-            status: 'active-scanning',
-            activeScanId: activeScanId,
-            progress: 0
-          });
-          console.log(`Active scan started with ID: ${activeScanId}`);
-          
-          // Wait for active scan to complete
-          console.log(`Waiting for active scan to complete...`);
-          let isComplete = false;
-          let progress = 0;
-          
-          while (!isComplete) {
-            const statusResponse = await zapService.checkActiveScanStatus(activeScanId);
-            progress = Math.min(statusResponse.status, 100);
-            isComplete = progress >= 100;
-            
-            await scanService.updateScan(scanData.uuid, {
-              progress,
-              status: isComplete ? 'completed' : 'active-scanning'
-            });
-            
-            if (!isComplete) {
-              // Wait 5 seconds before checking again
-              await new Promise(resolve => setTimeout(resolve, 5000));
-            }
-          }
-          
-          console.log(`Active scan completed for scheduled scan ${scanData.uuid}`);
-          
-          const alerts = await zapService.getAlerts(activeScanId);
-          if (alerts && alerts.length > 0) {
-            await scanService.saveAlerts(scanData.uuid, alerts);
-            console.log(`Saved ${alerts.length} alerts for scheduled scan ${scanData.uuid}`);
-          }
-          
-          // Mark scan as completed
-          await scanService.completeScan(scanData.uuid);
-          console.log(`Marked scheduled scan ${scanData.uuid} as completed`);
           
           // Calculate the next run time based on repeat pattern
           const nextRunAt = this.calculateNextRunTime(
@@ -420,7 +358,7 @@ class ScheduleService {
             nextRunAt
           });
           
-          console.log(`Started scheduled scan ${scanData.uuid} for schedule ${schedule.id}`);
+          console.log(`Started scheduled scan ${scan.uuid} for schedule ${schedule.id}`);
           console.log(`Next run scheduled for: ${nextRunAt.toISOString()}`);
         } catch (error) {
           console.error(`Failed to process schedule ${schedule.id}:`, error);
