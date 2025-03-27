@@ -153,9 +153,7 @@ class ScanService {
     
     // Get active scans from cache
     const cacheScans = Array.from(scanCache.getAllScans().values());
-    const activeFromCache = cacheScans.filter(scan => 
-      scan.status !== 'completed' && scan.status !== 'failed'
-    );
+    const activeFromCache = cacheScans.filter(scan => scan.status === 'active');
     activeScans.push(...activeFromCache);
     
     // If DB connected, also get active scans from DB
@@ -164,7 +162,7 @@ class ScanService {
         const dbScans = await this.prisma.scan.findMany({
           where: {
             status: {
-              notIn: ['completed', 'failed']
+              equals: 'active'
             }
           },
           orderBy: {

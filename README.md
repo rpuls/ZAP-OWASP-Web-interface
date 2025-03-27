@@ -96,7 +96,7 @@ docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -
 #### Demo sites to scan
 
 - `https://google-gruyere.appspot.com/start` for a quick scan
-- `https://https://juice-shop.herokuapp.com/` for a longer deeper scan
+- `https://juice-shop.herokuapp.com/` for a longer deeper scan
 
 ### Project Structure
 

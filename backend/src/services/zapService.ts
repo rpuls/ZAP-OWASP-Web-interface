@@ -298,19 +298,46 @@ class ZapService {
     try {
       console.log(`Checking if URL is reachable: ${url}`);
       
-      // Use axios to make a HEAD request to the URL
-      // HEAD is preferred over GET as it doesn't download the full page content
-      const response = await axios.head(url, {
-        timeout: 10000, // 10 second timeout
-        validateStatus: () => true // Don't throw on any status code
+      // First try HEAD request as it's more efficient
+      try {
+        const headResponse = await axios.head(url, {
+          timeout: 10000, // 10 second timeout
+          validateStatus: () => true // Don't throw on any status code
+        });
+        
+        // If HEAD request succeeds with 2xx or 3xx, return true
+        if (headResponse.status >= 200 && headResponse.status < 400) {
+          console.log(`URL ${url} is reachable (HEAD status: ${headResponse.status})`);
+          return true;
+        }
+        
+        // If HEAD returns 405 Method Not Allowed, we'll try GET below
+        if (headResponse.status === 405) {
+          console.log(`HEAD request returned 405 Method Not Allowed for ${url}, trying GET request`);
+        } else {
+          console.log(`URL ${url} is not reachable (HEAD status: ${headResponse.status})`);
+        }
+      } catch (error) {
+        // If HEAD request fails completely, we'll try GET below
+        const headError = error as Error;
+        console.log(`HEAD request failed for ${url}, trying GET request: ${headError.message}`);
+      }
+      
+      // If HEAD failed or returned 405, try GET request
+      const getResponse = await axios.get(url, {
+        timeout: 10000,
+        validateStatus: () => true,
+        // Limit the response size to avoid downloading large pages
+        maxContentLength: 1024 * 10, // 10KB is enough to verify the site is up
+        responseType: 'text'
       });
       
-      // Consider 2xx and 3xx status codes as success
-      const isReachable = response.status >= 200 && response.status < 400;
-      console.log(`URL ${url} is ${isReachable ? 'reachable' : 'not reachable'} (status: ${response.status})`);
-      
+      const isReachable = getResponse.status >= 200 && getResponse.status < 400;
+      console.log(`URL ${url} is ${isReachable ? 'reachable' : 'not reachable'} (GET status: ${getResponse.status})`);
       return isReachable;
+      
     } catch (error) {
+      // If both HEAD and GET fail, the URL is not reachable
       console.error(`Error checking if URL is reachable: ${url}`, error);
       return false;
     }

@@ -124,6 +124,14 @@ export function ScanForm() {
     }
   }, [scanStatus?.status, isComplete]);
 
+  // Handle error states from scan status
+  useEffect(() => {
+    if (scanStatus?.error) {
+      console.log(scanStatus);
+      setHasActiveScan(false);
+    }
+  }, [scanStatus?.error]);
+
   const isStalled = dataUpdatedAt && (Date.now() - dataUpdatedAt > TIMEOUT_THRESHOLD) && scanStatus?.status !== 'completed';
 
   // Handle scan selection change
