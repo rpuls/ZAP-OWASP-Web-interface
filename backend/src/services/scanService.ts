@@ -484,7 +484,6 @@ class ScanService {
     const alerts = await zapService.getAlerts(activeScanId);
     if (alerts && alerts.length > 0) {
       await this.saveAlerts(scan.uuid, alerts);
-      console.log(`Saved ${alerts.length} alerts for scheduled scan ${scan.uuid}`);
     }
 
     // Mark scan as completed

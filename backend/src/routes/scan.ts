@@ -122,9 +122,19 @@ router.get('/:uuid', async (req: Request, res: Response) => {
 router.get('/:uuid/alerts', async (req: Request, res: Response) => {
   try {
     const uuid = req.params.uuid;
+    const scan = await scanService.getScan(uuid);
+
+    if (!scan) {
+      return res.status(404).json({
+        error: {
+          message: 'Scan not found',
+          code: 'SCAN_NOT_FOUND'
+        }
+      });
+    }
     
     // Get alerts for the scan
-    const alerts = await scanService.getAlertsFromDb(uuid);
+    const alerts = await scanService.getAlerts(uuid, scan.activeScanId ?? undefined);
     
     if (!alerts || alerts.length === 0) {
       return res.status(404).json({
