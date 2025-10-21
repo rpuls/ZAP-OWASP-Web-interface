@@ -61,7 +61,6 @@ const sampleAlerts: ZapAlert[] = [
 generatePdfReport(sampleAlerts, {
   targetUrl: 'https://example.com',
   startTime: new Date(),
-  status: 'completed'
 }).then(originalFilePath => {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
   const filename = `test-report_${timestamp}.pdf`;

@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@emotion/react": "^11.11.3",
-    "@mantine/core": "^7.4.1",
-    "@mantine/hooks": "^7.4.1",
+    "@mantine/core": "^7.17.8",
+    "@mantine/dates": "^7.17.8",
+    "@mantine/hooks": "^7.17.8",
     "@tabler/icons-react": "^3.29.0",
     "@tanstack/react-query": "^5.17.19",
     "axios": "^1.12.0",
+    "esbuild": "^0.25.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -25,11 +27,11 @@
     "@types/react-dom": "^18.2.17",
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^4.3.4",
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "typescript": "^5.2.2",
-    "vite": "^5.4.20"
+    "vite": "^6.2.3"
   }
 }

@@ -1,9 +1,9 @@
 import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import axios from 'axios';
 import { generatePdfReport } from '../services/pdf';
-import { scanCache } from '../services/scanCache';
+import { scanService } from '../services/scanService';
+import { zapService } from '../services/zapService';
 
 const router = Router();
 
@@ -22,8 +22,8 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
       return res.status(400).json({ error: 'Missing uuid' });
     }
 
-    // Get scan metadata from cache
-    const scanMetadata = scanCache.getScanMetadata(uuid);
+    // Get scan metadata from service (will check cache first, then DB if needed)
+    const scanMetadata = await scanService.getScan(uuid);
     if (!scanMetadata) {
       return res.status(404).json({ error: 'Scan metadata not found' });
     }
@@ -33,42 +33,13 @@ router.post('/generate', async (req: GenerateReportRequest, res: Response) => {
       return res.status(400).json({ error: 'No active scan ID found for this scan' });
     }
 
-    // Get scan alerts from ZAP
-    const alertsResponse = await axios.get('/JSON/core/view/alerts/', {
-      params: {
-        scanId: scanMetadata.activeScanId,
-        start: 0,
-        count: 100,
-        riskId: ''  // Get all risk levels
-      },
-      baseURL: `http://${process.env.ZAP_API_URL}:8080`,
-      headers: process.env.ZAP_API_KEY ? {
-        'X-ZAP-API-Key': process.env.ZAP_API_KEY
-      } : undefined,
-      timeout: 30000,
-      validateStatus: null
-    });
-
-    const alerts = alertsResponse.data.alerts;
-    if (!alerts || !Array.isArray(alerts)) {
-      return res.status(500).json({ error: 'Failed to fetch scan results' });
-    }
-
-    // Get scan status from ZAP
-    const statusResponse = await axios.get('/JSON/ascan/view/status/', {
-      params: { scanId: scanMetadata.activeScanId },
-      baseURL: `http://${process.env.ZAP_API_URL}:8080`,
-      headers: process.env.ZAP_API_KEY ? {
-        'X-ZAP-API-Key': process.env.ZAP_API_KEY
-      } : undefined,
-      timeout: 30000,
-      validateStatus: null
-    });
+    // Get alerts using the scanService's getAlerts method
+    const alerts = await scanService.getAlerts(uuid, scanMetadata.activeScanId);
 
     const scanDetails = {
       targetUrl: scanMetadata.url,
-      startTime: scanMetadata.timestamp,
-      status: statusResponse.data.status === '100' ? 'FINISHED' : 'IN PROGRESS'
+      startTime: scanMetadata.startedAt,
+      completedAt: scanMetadata.completedAt ?? undefined
     };
     const filepath = await generatePdfReport(alerts, scanDetails);
     

@@ -1,5 +1,10 @@
-import { MantineProvider, createTheme, Group, Stack, Text, Anchor } from '@mantine/core';
+import { useState, useEffect } from 'react';
+import { MantineProvider, createTheme, Group, Stack, Text, Anchor, Tabs, rem } from '@mantine/core';
 import { ScanForm } from './components/ScanForm';
+import { ScanHistoryTable } from './components/ScanHistoryTable';
+import { ScheduleList } from './components/ScheduleList';
+import { useQuery } from '@tanstack/react-query';
+import { getScanHistory } from './services/api';
 import '@mantine/core/styles.css';
 import zapLogo from './assets/ZAP-logo.png';
 import funkytonLogo from './assets/funkyton-logo.png';
@@ -9,11 +14,36 @@ const theme = createTheme({
   fontFamily: 'system-ui, -apple-system, sans-serif',
 });
 
+// Standard width for most UI components
+const STANDARD_WIDTH = 800;
+
 function App() {
+  const [activeTab, setActiveTab] = useState<string | null>('scan-now');
+  const [hasScans, setHasScans] = useState(false);
+  
+  // Check if there are any scans to enable/disable the Scan History tab
+  const { data: scanHistoryData } = useQuery({
+    queryKey: ['scanHistoryCheck'],
+    queryFn: () => getScanHistory(1, 1),
+    refetchInterval: 5000, // Check every 5 seconds
+  });
+  
+  // Update hasScans state when data changes
+  useEffect(() => {
+    if (scanHistoryData && scanHistoryData.scans.length > 0) {
+      setHasScans(true);
+    }
+  }, [scanHistoryData]);
+  
+  // Handle tab change
+  const handleTabChange = (value: string | null) => {
+    setActiveTab(value);
+  };
+  
   return (
     <MantineProvider theme={theme}>
       <div style={{
-        maxWidth: '800px',
+        width: '100%',
         margin: '2rem auto',
         padding: '0 1rem',
       }}>
@@ -27,9 +57,28 @@ function App() {
             ZAP OWASP Scanner
           </h1>
         </Group>
-        <ScanForm />
         
-        <Stack align="center" style={{ marginTop: '3rem' }}>
+        <Tabs value={activeTab} onChange={handleTabChange} mb={rem(16)}>
+          <Tabs.List style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>
+            <Tabs.Tab value="scan-now">Scan Now</Tabs.Tab>
+            <Tabs.Tab value="scan-history" disabled={!hasScans}>Scan History</Tabs.Tab>
+            <Tabs.Tab value="scheduling">Scheduling</Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value="scan-now" pt={rem(16)} style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>
+            <ScanForm />
+          </Tabs.Panel>
+          
+          <Tabs.Panel value="scan-history" pt={rem(16)} style={{ width: '100%' }}>
+            <ScanHistoryTable />
+          </Tabs.Panel>
+          
+          <Tabs.Panel value="scheduling" pt={rem(16)} style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>
+            <ScheduleList />
+          </Tabs.Panel>
+        </Tabs>
+        
+        {/* <Stack align="center" style={{ marginTop: '3rem' }}>
           <Group gap="xs">
             <Anchor href="https://funkyton.com/" target="_blank">Blog</Anchor>
             <Text>•</Text>
@@ -43,7 +92,7 @@ function App() {
               <img src={funkytonLogo} alt="Funkyton Logo" style={{ height: '30px' }} />
             </Group>
           </Anchor>
-        </Stack>
+        </Stack> */}
       </div>
     </MantineProvider>
   );

@@ -48,10 +48,7 @@ This template automatically launches the required [ZAP docker container](https:/
 
 1. Make sure to have Docker imgae `zaproxy/zap-stable:latest` running with the following start command:
 ```bash
-docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 \
-  -config api.disablekey=true \
-  -config api.addrs.addr.name=.* \
-  -config api.addrs.addr.regex=true
+docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true
 ```
 2. Clone the project: Launch on Railway and eject [watch how](https://www.youtube.com/watch?v=LJFek8JP8TE). Alternatively, clone this repo or fork it.
 3. Install dependencies:
@@ -77,6 +74,10 @@ docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -
   - Detailed vulnerability descriptions
   - Solutions and references
   - Risk-based categorization
+- **Optional PostgreSQL database integration**:
+  - Automatic scan persistence when database is available
+  - Fallback to in-memory storage when no database is configured
+  - Completed scans are stored in the database and cleared from memory
 - **Railway-ready configuration**
 
 
@@ -91,6 +92,11 @@ docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -
 - `cd frontend && pnpm dev` to start the React frontend.
 - `cd backend && pnpm dev` to start the Node.js backend.
 - `pnpm build && pnpm start` to compile and run from compiled source.
+
+#### Demo sites to scan
+
+- `https://google-gruyere.appspot.com/start` for a quick scan
+- `https://juice-shop.herokuapp.com/` for a longer deeper scan
 
 ### Project Structure
 
@@ -108,6 +114,50 @@ The project is organized as a monorepo containing both frontend and backend:
 - Clean and intuitive user interface.
 - Download PDF report of scan result.
 - Backend proxy to ZAP service.
+- Optional database persistence for scan results.
+- **Scan scheduling system**:
+  - Schedule scans to run at specific times
+  - Configure repeat patterns (daily, weekly, monthly)
+  - Automatic execution of scheduled scans
+  - Real-time monitoring of scheduled scan status
+
+### Database Integration
+
+The application supports optional PostgreSQL database integration:
+
+- **Flexible Operation**: Works seamlessly with or without a database connection
+- **Railway Integration**: When deployed on Railway, the database is automatically configured
+- **Local Development**: For local development, you can:
+  - Run without a database (scans stored in memory only)
+  - Connect to a local PostgreSQL instance
+  - Connect to a remote PostgreSQL database
+
+#### Prisma ORM
+
+This project uses Prisma ORM for database operations:
+
+- **Automatic Client Generation**: The Prisma client is automatically generated during the build process
+- **Schema-First Approach**: The database schema is defined in `backend/prisma/schema.prisma`
+- **Type Safety**: Prisma provides type-safe database access with TypeScript integration
+
+#### Configuring Database Connection
+
+To enable database persistence, set the `DATABASE_URL` environment variable in your `.env` file:
+
+```
+DATABASE_URL=postgresql://username:password@localhost:5432/zapscans
+```
+
+When the application starts:
+1. It checks for a valid `DATABASE_URL` environment variable
+2. If found, it establishes a connection to the database
+3. If not found or connection fails, it continues to operate using in-memory storage
+
+#### Benefits of Database Persistence
+
+- **Long-term Storage**: Scan results persist across application restarts
+- **Memory Efficiency**: Completed scans are removed from memory after being stored in the database
+- **Historical Data**: Access to historical scan results even after server restarts
 
 ## API Endpoints
 

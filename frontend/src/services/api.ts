@@ -11,14 +11,70 @@ export interface ScanResponse {
 
 export interface ScanStatus {
   uuid: string;
-  status: number | null;
-  isComplete: boolean;
-  results: any[] | null;
-  error?: {
-    message: string;
-    code: string;
-    details?: unknown;
+  url: string;
+  startedAt: Date;
+  completedAt: Date | null;
+  status: string;
+  progress: number;
+  spiderScanId: string | null;
+  activeScanId: string | null;
+  error: string | null;
+  scheduleId: string | null;
+}
+
+export interface AlertCounts {
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+}
+
+export interface ScanSummary {
+  uuid: string;
+  url: string;
+  startedAt: Date;
+  completedAt?: Date;
+  status: string;
+  progress: number;
+  alertCounts?: AlertCounts;
+  totalAlerts?: number;
+  duration?: number; // in milliseconds
+}
+
+export interface ScanHistoryResponse {
+  scans: ScanSummary[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
   };
+}
+
+export interface Schedule {
+  id: string;
+  url: string;
+  name?: string;
+  createdAt: Date;
+  startTime: Date;
+  repeatPattern?: string;
+  lastRunAt?: Date;
+  nextRunAt?: Date;
+  isActive: boolean;
+}
+
+export interface ScheduleCreateInput {
+  url: string;
+  name?: string;
+  startTime: Date;
+  repeatPattern?: string;
+  isActive?: boolean;
+}
+
+export interface ScheduleUpdateInput extends Partial<ScheduleCreateInput> {}
+
+export interface SchedulesResponse {
+  schedules: Schedule[];
 }
 
 export async function startScan(url: string): Promise<ScanResponse> {
@@ -28,7 +84,50 @@ export async function startScan(url: string): Promise<ScanResponse> {
 
 export async function getScanStatus(uuid: string): Promise<ScanStatus> {
   const response = await axios.get(`${API_URL}/scans/${uuid}`);
+  
+  // Convert string dates to Date objects
+  const scan = response.data;
+  return {
+    ...scan,
+    startedAt: new Date(scan.startedAt),
+    completedAt: scan.completedAt ? new Date(scan.completedAt) : null
+  };
+}
+
+export async function getScanAlerts(uuid: string): Promise<any[]> {
+  const response = await axios.get(`${API_URL}/scans/${uuid}/alerts`);
   return response.data;
+}
+
+export interface ActiveScansResponse {
+  scans: ScanStatus[];
+}
+
+export async function getActiveScans(): Promise<ScanStatus[]> {
+  const response = await axios.get<ActiveScansResponse>(`${API_URL}/scans/active`);
+  
+  // Convert string dates to Date objects
+  return response.data.scans.map(scan => ({
+    ...scan,
+    startedAt: new Date(scan.startedAt),
+    completedAt: scan.completedAt ? new Date(scan.completedAt) : null
+  }));
+}
+
+export async function getScanHistory(page: number = 1, limit: number = 10): Promise<ScanHistoryResponse> {
+  const response = await axios.get(`${API_URL}/scans`, {
+    params: { page, limit }
+  });
+  
+  // Convert string dates to Date objects
+  const data = response.data;
+  data.scans = data.scans.map((scan: any) => ({
+    ...scan,
+    startedAt: new Date(scan.startedAt),
+    completedAt: scan.completedAt ? new Date(scan.completedAt) : undefined
+  }));
+  
+  return data;
 }
 
 export async function generateReport(uuid: string): Promise<void> {
@@ -60,4 +159,68 @@ export async function generateReport(uuid: string): Promise<void> {
   link.click();
   link.remove();
   window.URL.revokeObjectURL(url);
+}
+
+// Schedule API functions
+
+export async function getSchedules(): Promise<SchedulesResponse> {
+  const response = await axios.get(`${API_URL}/schedules`);
+  
+  // Convert string dates to Date objects
+  const data = response.data;
+  data.schedules = data.schedules.map((schedule: any) => ({
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  }));
+  
+  return data;
+}
+
+export async function getScheduleById(id: string): Promise<Schedule> {
+  const response = await axios.get(`${API_URL}/schedules/${id}`);
+  
+  // Convert string dates to Date objects
+  const schedule = response.data;
+  return {
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  };
+}
+
+export async function createSchedule(data: ScheduleCreateInput): Promise<Schedule> {
+  const response = await axios.post(`${API_URL}/schedules`, data);
+  
+  // Convert string dates to Date objects
+  const schedule = response.data;
+  return {
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  };
+}
+
+export async function updateSchedule(id: string, data: ScheduleUpdateInput): Promise<Schedule> {
+  const response = await axios.put(`${API_URL}/schedules/${id}`, data);
+  
+  // Convert string dates to Date objects
+  const schedule = response.data;
+  return {
+    ...schedule,
+    createdAt: new Date(schedule.createdAt),
+    startTime: new Date(schedule.startTime),
+    lastRunAt: schedule.lastRunAt ? new Date(schedule.lastRunAt) : undefined,
+    nextRunAt: schedule.nextRunAt ? new Date(schedule.nextRunAt) : undefined
+  };
+}
+
+export async function deleteSchedule(id: string): Promise<void> {
+  await axios.delete(`${API_URL}/schedules/${id}`);
 }

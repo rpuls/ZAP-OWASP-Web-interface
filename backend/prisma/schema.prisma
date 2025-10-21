@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Schedule {
+  id          String   @id @default(uuid())
+  url         String
+  name        String?
+  createdAt   DateTime @default(now())
+  
+  // Scheduling information
+  startTime   DateTime
+  repeatPattern String?  // e.g., "daily", "weekly", "monthly", "none"
+  
+  // Status tracking
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  isActive    Boolean   @default(true)
+  
+  // Related scans
+  scans       Scan[]
+}
+
+model Scan {
+  uuid         String   @id
+  url          String
+  startedAt    DateTime
+  completedAt  DateTime?
+  status       String
+  progress     Int
+  spiderScanId String?
+  activeScanId String?
+  error        String?
+  lastCheckedAt DateTime?
+  
+  // Relation to alerts
+  alerts       Alert[]
+  
+  // Optional relation to schedule
+  scheduleId  String?
+  schedule    Schedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+}
+
+model Alert {
+  id          String   @id @default(uuid())
+  scanId      String
+  scan        Scan     @relation(fields: [scanId], references: [uuid], onDelete: Cascade)
+  
+  // ZAP Alert fields
+  zapId       String?
+  name        String
+  risk        String
+  description String    @db.Text
+  solution    String    @db.Text
+  reference   String    @db.Text
+  url         String
+  evidence    String?   @db.Text
+  param       String?
+  attack      String?   @db.Text
+  other       String?   @db.Text
+  confidence  String?
+  wascid      String?
+  cweid       String?
+  
+  // JSON field for tags
+  tags        Json?
+  
+  createdAt   DateTime  @default(now())
+}

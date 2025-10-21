@@ -3,7 +3,7 @@ import { ZapAlert } from '../../types';
 export interface PdfGenerationOptions {
   targetUrl: string;
   startTime: Date;
-  status: string;
+  completedAt?: Date;
 }
 
 export interface AlertGroup {
