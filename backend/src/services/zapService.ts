@@ -327,8 +327,8 @@ class ZapService {
       const getResponse = await axios.get(url, {
         timeout: 10000,
         validateStatus: () => true,
-        // Limit the response size to avoid downloading large pages
-        maxContentLength: 1024 * 10, // 10KB is enough to verify the site is up
+        // Increase maxContentLength to handle larger responses
+        maxContentLength: 1024 * 1024, // 1MB should handle most pages
         responseType: 'text'
       });
       
@@ -337,6 +337,14 @@ class ZapService {
       return isReachable;
       
     } catch (error) {
+      // Special handling for content length exceeded error
+      if (axios.isAxiosError(error) && error.code === 'ERR_BAD_RESPONSE') {
+        // If we get this error, it means the server responded but content was too large
+        // This still means the URL is reachable
+        console.log(`URL ${url} is reachable (large response received)`);
+        return true;
+      }
+      
       // If both HEAD and GET fail, the URL is not reachable
       console.error(`Error checking if URL is reachable: ${url}`, error);
       return false;

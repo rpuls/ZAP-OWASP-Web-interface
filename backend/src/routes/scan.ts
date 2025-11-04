@@ -9,6 +9,19 @@ import { ScanSummary } from '../services/scanCache';
 
 const router = Router();
 
+// Helper function to normalize URL by adding protocol if missing
+const normalizeUrl = (url: string): string => {
+  const trimmedUrl = url.trim();
+  
+  // If URL already has a protocol, return as-is
+  if (trimmedUrl.match(/^https?:\/\//i)) {
+    return trimmedUrl;
+  }
+  
+  // If no protocol, prepend https:// as default
+  return `https://${trimmedUrl}`;
+};
+
 // Input validation schema
 const ScanRequestSchema = z.object({
   url: z.string().url(),
@@ -18,7 +31,12 @@ const ScanRequestSchema = z.object({
 router.post('/', async (req: ScanRequest, res: Response) => {
   try {
     console.log('Received scan request:', req.body);
-    const { url: scanTargetUrl } = ScanRequestSchema.parse(req.body);
+    
+    // Normalize URL before validation
+    const normalizedUrl = normalizeUrl(req.body.url);
+    console.log('Normalized URL:', normalizedUrl);
+    
+    const { url: scanTargetUrl } = ScanRequestSchema.parse({ url: normalizedUrl });
     
     const scan = await scanService.startFullScan(scanTargetUrl);
 

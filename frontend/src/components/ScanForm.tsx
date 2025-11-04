@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { TextInput, Button, Paper, Progress, Text, Stack, rem, Divider, Select } from '@mantine/core';
+import { TextInput, Button, Paper, Progress, Text, Stack, rem, Divider, Select, Group } from '@mantine/core';
 import { AlertList } from './AlertList';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { startScan, getScanStatus, getScanAlerts, getActiveScans, ScanStatus } from '../services/api';
@@ -22,8 +22,28 @@ const getScanStatusText = (status: string, progress: number): string => {
   }
 };
 
+// Helper function to strip protocol from URL
+const stripProtocol = (url: string): string => {
+  return url.replace(/^https?:\/\//, '');
+};
+
+// Helper function to extract protocol from URL
+const extractProtocol = (url: string): 'https://' | 'http://' => {
+  if (url.startsWith('http://')) {
+    return 'http://';
+  }
+  return 'https://'; // default to https
+};
+
 export function ScanForm() {
-  const [url, setUrl] = useState(() => localStorage.getItem('lastScanUrl') || '');
+  const [url, setUrl] = useState(() => {
+    const savedUrl = localStorage.getItem('lastScanUrl') || '';
+    return stripProtocol(savedUrl);
+  });
+  const [protocol, setProtocol] = useState<'https://' | 'http://'>(() => {
+    const savedUrl = localStorage.getItem('lastScanUrl') || '';
+    return extractProtocol(savedUrl);
+  });
   const [uuid, setUuid] = useState<string | null>(null);
   const [activeScans, setActiveScans] = useState<ScanStatus[]>([]);
   const defaultSetRef = useRef(false);
@@ -40,7 +60,9 @@ export function ScanForm() {
             setHasActiveScan(true);
             
             setUuid(scans[0].uuid);
-            setUrl(scans[0].url);
+            const fullUrl = scans[0].url;
+            setProtocol(extractProtocol(fullUrl));
+            setUrl(stripProtocol(fullUrl));
             // Mark that we've set the default
             defaultSetRef.current = true;
           }
@@ -60,7 +82,7 @@ export function ScanForm() {
       console.log('Scan started successfully:', data);
       setIsComplete(false); // Reset completion state for new scan
       setUuid(data.uuid);
-      localStorage.setItem('lastScanUrl', url); // Save URL to localStorage
+      localStorage.setItem('lastScanUrl', protocol + url); // Save full URL to localStorage
       setHasActiveScan(true);
       
       // Add the new scan to active scans
@@ -140,7 +162,9 @@ export function ScanForm() {
       const selectedScan = activeScans.find(scan => scan.uuid === value);
       if (selectedScan) {
         setUuid(value);
-        setUrl(selectedScan.url);
+        const fullUrl = selectedScan.url;
+        setProtocol(extractProtocol(fullUrl));
+        setUrl(stripProtocol(fullUrl));
         setIsComplete(false); // Reset completion state for new selection
       }
     }
@@ -150,7 +174,10 @@ export function ScanForm() {
     e.preventDefault();
     setError(null); // Clear any previous errors
     if (url) {
-      startScanMutation(url);
+      // Strip any protocol that might have been entered and combine with selected protocol
+      const cleanUrl = stripProtocol(url);
+      const fullUrl = protocol + cleanUrl;
+      startScanMutation(fullUrl);
     }
   };
 
@@ -170,17 +197,39 @@ export function ScanForm() {
               onChange={handleScanChange}
             />
           ) : (
-            <TextInput
-              required
-              label="URL to Scan"
-              description={hasActiveScan ? "Currently scanning this URL" : "Enter the URL you want to scan for vulnerabilities"}
-              placeholder="https://example.com"
-              value={url}
-              onChange={(e) => {
-                setUrl(e.target.value);
-              }}
-              disabled={hasActiveScan || isStarting}
-            />
+            <div>
+              <Text size="sm" fw={500} mb={rem(4)}>
+                URL to Scan
+              </Text>
+              <Text size="xs" c="dimmed" mb={rem(8)}>
+                {hasActiveScan ? "Currently scanning this URL" : "Enter the URL you want to scan for vulnerabilities"}
+              </Text>
+              <Group gap="xs" align="flex-start">
+                <Select
+                  data={[
+                    { value: 'https://', label: 'https://' },
+                    { value: 'http://', label: 'http://' }
+                  ]}
+                  value={protocol}
+                  onChange={(value) => setProtocol(value as 'https://' | 'http://')}
+                  disabled={hasActiveScan || isStarting}
+                  style={{ width: '110px' }}
+                  allowDeselect={false}
+                />
+                <TextInput
+                  required
+                  placeholder="example.com"
+                  value={url}
+                  onChange={(e) => {
+                    // Strip protocol if user pastes a full URL
+                    const inputValue = e.target.value;
+                    setUrl(stripProtocol(inputValue));
+                  }}
+                  disabled={hasActiveScan || isStarting}
+                  style={{ flex: 1 }}
+                />
+              </Group>
+            </div>
           )}
           
           <Button
