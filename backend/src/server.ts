@@ -108,7 +108,8 @@ if (!fs.existsSync(distPath)) {
 app.use(express.static(distPath));
 
 // Serve index.html for all other routes (SPA support)
-app.get('*', (req, res) => {
+// Express 5 requires named wildcard parameters in route paths.
+app.get('/{*splat}', (req, res) => {
   const indexPath = path.resolve(distPath, 'index.html');
   console.log('Request for:', req.path);
   console.log('Trying to serve:', indexPath);
