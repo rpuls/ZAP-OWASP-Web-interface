@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "prisma generate && tsc && ts-node scripts/post-build.ts",
+    "dev": "tsx watch src/server.ts",
+    "build": "prisma generate && tsc && tsx scripts/post-build.ts",
     "start": "node dist/server.js",
-    "testpdf": "ts-node-dev test/pdf-test.ts",
+    "testpdf": "tsx test/pdf-test.ts",
     "prisma:generate": "prisma generate --env-file=../.env",
     "prisma:migrate": "prisma migrate dev --env-file=../.env",
     "prisma:studio": "prisma studio --env-file=../.env"
@@ -16,11 +16,11 @@
     "@prisma/client": "^5.10.2",
     "@types/pdfkit": "^0.13.8",
     "@types/uuid": "^10.0.0",
-    "axios": "^1.12.0",
+    "axios": "^1.13.5",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "esbuild": "^0.25.1",
-    "express": "^4.18.2",
+    "express": "^5.2.1",
     "http-proxy-middleware": "^2.0.9",
     "pdfkit": "^0.16.0",
     "uuid": "^11.0.5",
@@ -31,7 +31,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.10.6",
     "prisma": "^5.10.2",
-    "ts-node-dev": "^2.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.3.3"
   }
 }
