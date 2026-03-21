@@ -6,7 +6,7 @@
     "private":  true,
     "packageManager":  "pnpm@9.15.1",
     "engines":  {
-                    "node":  "\u003e=18.0.0"
+                    "node":  "\u003e=20.19.0"
                 },
     "scripts":  {
                     "dev":  "pnpm -r run dev",
