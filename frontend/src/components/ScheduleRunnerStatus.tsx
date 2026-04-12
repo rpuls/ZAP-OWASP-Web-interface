@@ -1,14 +1,9 @@
 import { useState } from 'react';
 import { Paper, Text, Group, Button, Badge, Divider, Stack } from '@mantine/core';
 import { IconRefresh } from '@tabler/icons-react';
-import axios from 'axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getSchedules } from '../services/api';
-
-interface RunnerStatus {
-  isRunning: boolean;
-  checkIntervalMs: number;
-}
+import { getSchedules, getScheduleRunnerStatus, ScheduleRunnerStatus as RunnerStatus } from '../services/api';
+import axios from 'axios';
 
 export function ScheduleRunnerStatus() {
   const [triggerError, setTriggerError] = useState<string | null>(null);
@@ -21,10 +16,7 @@ export function ScheduleRunnerStatus() {
     error: statusError 
   } = useQuery<RunnerStatus>({
     queryKey: ['scheduleRunnerStatus'],
-    queryFn: async () => {
-      const response = await axios.get('/api/v1/schedules/runner/status');
-      return response.data;
-    },
+    queryFn: getScheduleRunnerStatus,
     refetchInterval: 10000 // Refresh every 10 seconds
   });
   
@@ -82,22 +74,32 @@ export function ScheduleRunnerStatus() {
         <Group justify="space-between">
           <Text fw={500}>Schedule Runner Status</Text>
           <Badge 
-            color={status?.isRunning && (schedulesData?.schedules?.length || 0) > 0 ? 'green' : 'gray'} 
+            color={
+              !status?.schedulingAvailable
+                ? 'yellow'
+                : status?.isRunning && (schedulesData?.schedules?.length || 0) > 0
+                  ? 'green'
+                  : 'gray'
+            } 
             variant="light"
           >
-            {status?.isRunning && (schedulesData?.schedules?.length || 0) > 0 
-              ? 'Running' 
-              : (schedulesData?.schedules?.length || 0) === 0 
-                ? 'Idle (No Schedules)' 
-                : 'Stopped'}
+            {!status?.schedulingAvailable
+              ? 'Database Required'
+              : status?.isRunning && (schedulesData?.schedules?.length || 0) > 0
+                ? 'Running'
+                : (schedulesData?.schedules?.length || 0) === 0
+                  ? 'Idle (No Schedules)'
+                  : 'Stopped'}
           </Badge>
         </Group>
         
         <Text size="sm">
-          Check interval: {status?.checkIntervalMs ? `${status.checkIntervalMs / 1000} seconds` : 'N/A'}
+          {status?.schedulingAvailable
+            ? `Check interval: ${status?.checkIntervalMs ? `${status.checkIntervalMs / 1000} seconds` : 'N/A'}`
+            : 'Scheduling is unavailable until a database connection is configured.'}
         </Text>
         
-        {(schedulesData?.schedules?.length || 0) > 0 && (
+        {status?.schedulingAvailable && (schedulesData?.schedules?.length || 0) > 0 && (
           <>
             <Divider />
             

@@ -4,7 +4,7 @@ import { ScanForm } from './components/ScanForm';
 import { ScanHistoryTable } from './components/ScanHistoryTable';
 import { ScheduleList } from './components/ScheduleList';
 import { useQuery } from '@tanstack/react-query';
-import { getScanHistory } from './services/api';
+import { getScanHistory, getScheduleRunnerStatus } from './services/api';
 import '@mantine/core/styles.css';
 import zapLogo from './assets/ZAP-logo.png';
 import funkytonLogo from './assets/funkyton-logo.png';
@@ -26,6 +26,11 @@ function App() {
     queryKey: ['scanHistoryCheck'],
     queryFn: () => getScanHistory(1, 1),
     refetchInterval: 5000, // Check every 5 seconds
+  });
+  const { data: scheduleRunnerStatus } = useQuery({
+    queryKey: ['scheduleRunnerStatus'],
+    queryFn: getScheduleRunnerStatus,
+    refetchInterval: 10000,
   });
   
   // Update hasScans state when data changes
@@ -62,7 +67,9 @@ function App() {
           <Tabs.List style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>
             <Tabs.Tab value="scan-now">Scan Now</Tabs.Tab>
             <Tabs.Tab value="scan-history" disabled={!hasScans}>Scan History</Tabs.Tab>
-            <Tabs.Tab value="scheduling">Scheduling</Tabs.Tab>
+            <Tabs.Tab value="scheduling" disabled={!scheduleRunnerStatus?.schedulingAvailable}>
+              Scheduling
+            </Tabs.Tab>
           </Tabs.List>
 
           <Tabs.Panel value="scan-now" pt={rem(16)} style={{ maxWidth: `${STANDARD_WIDTH}px`, margin: '0 auto' }}>

@@ -81,17 +81,19 @@ app.use(
     pathRewrite: {
       '^/zap': '', // Remove /zap prefix when forwarding to target
     },
-    onProxyReq: (proxyReq, req) => {
-      if (zapApiKey) {
-        proxyReq.setHeader('X-ZAP-API-Key', zapApiKey);
-      }
+    on: {
+      proxyReq: (proxyReq) => {
+        if (zapApiKey) {
+          proxyReq.setHeader('X-ZAP-API-Key', zapApiKey);
+        }
 
-      process.env.VERBOSE && console.log('Proxying request to ZAP:', {
-        url: zapTarget + proxyReq.path,
-        method: proxyReq.method,
-        headers: proxyReq.getHeaders(),
-        path: proxyReq.path
-      });
+        process.env.VERBOSE && console.log('Proxying request to ZAP:', {
+          url: zapTarget + proxyReq.path,
+          method: proxyReq.method,
+          headers: proxyReq.getHeaders(),
+          path: proxyReq.path
+        });
+      }
     }
   })
 );

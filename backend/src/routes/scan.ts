@@ -9,6 +9,9 @@ import { ScanSummary } from '../services/scanCache';
 
 const router = Router();
 
+const getSingleParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
 // Helper function to normalize URL by adding protocol if missing
 const normalizeUrl = (url: string): string => {
   const trimmedUrl = url.trim();
@@ -112,7 +115,10 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/v1/scans/:scanId - Get scan status
 router.get('/:uuid', async (req: Request, res: Response) => {
   try {
-    const uuid = req.params.uuid;
+    const uuid = getSingleParam(req.params.uuid);
+    if (!uuid) {
+      return res.status(400).json({ error: 'Missing scan uuid' });
+    }
     console.log('Checking status for scan:', uuid);
 
     // Get scan metadata
@@ -139,7 +145,10 @@ router.get('/:uuid', async (req: Request, res: Response) => {
 // GET /api/v1/scans/:scanId/alerts - Get alerts for a scan
 router.get('/:uuid/alerts', async (req: Request, res: Response) => {
   try {
-    const uuid = req.params.uuid;
+    const uuid = getSingleParam(req.params.uuid);
+    if (!uuid) {
+      return res.status(400).json({ error: 'Missing scan uuid' });
+    }
     const scan = await scanService.getScan(uuid);
 
     if (!scan) {

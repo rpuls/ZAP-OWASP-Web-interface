@@ -1,4 +1,5 @@
 import { scheduleService } from './scheduleService';
+import { dbConnection } from './persistence/db-connection';
 
 /**
  * Service responsible for periodically checking and running scheduled scans
@@ -78,6 +79,7 @@ class ScheduleRunnerService {
    */
   getStatus() {
     return {
+      schedulingAvailable: dbConnection.isConnected,
       isRunning: this.isRunning,
       checkIntervalMs: this.intervalMs
     };

@@ -14,6 +14,18 @@ import {
 import { DateTimePicker } from '@mantine/dates';
 import { Schedule, ScheduleCreateInput, ScheduleUpdateInput } from '../services/api';
 
+const stripProtocol = (url: string): string => {
+  return url.replace(/^https?:\/\//, '');
+};
+
+const extractProtocol = (url: string): 'https://' | 'http://' => {
+  if (url.startsWith('http://')) {
+    return 'http://';
+  }
+
+  return 'https://';
+};
+
 interface ScheduleFormProps {
   schedule?: Schedule;
   onSubmit: (data: ScheduleCreateInput | ScheduleUpdateInput) => void;
@@ -29,7 +41,10 @@ export function ScheduleForm({
   isSubmitting,
   error
 }: ScheduleFormProps) {
-  const [url, setUrl] = useState(schedule?.url || '');
+  const [url, setUrl] = useState(stripProtocol(schedule?.url || ''));
+  const [protocol, setProtocol] = useState<'https://' | 'http://'>(() =>
+    extractProtocol(schedule?.url || ''),
+  );
   const [name, setName] = useState(schedule?.name || '');
   const [startTime, setStartTime] = useState<Date>(schedule?.startTime || new Date());
   const [repeatPattern, setRepeatPattern] = useState<string>(schedule?.repeatPattern || 'none');
@@ -40,7 +55,7 @@ export function ScheduleForm({
     e.preventDefault();
     
     const formData: ScheduleCreateInput | ScheduleUpdateInput = {
-      url,
+      url: protocol + stripProtocol(url),
       name: name || undefined,
       startTime,
       repeatPattern: repeatPattern === 'none' ? undefined : repeatPattern,
@@ -56,15 +71,35 @@ export function ScheduleForm({
         <Stack gap="md">
           <Title order={3}>{schedule ? 'Edit Schedule' : 'New Schedule'}</Title>
           
-          <TextInput
-            required
-            label="URL to Scan"
-            description="Enter the URL you want to scan for vulnerabilities"
-            placeholder="https://example.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            disabled={isSubmitting}
-          />
+          <div>
+            <Text size="sm" fw={500} mb="4">
+              URL to Scan
+            </Text>
+            <Text size="xs" c="dimmed" mb="8">
+              Enter the URL you want to scan for vulnerabilities
+            </Text>
+            <Group gap="xs" align="flex-start">
+              <Select
+                data={[
+                  { value: 'https://', label: 'https://' },
+                  { value: 'http://', label: 'http://' }
+                ]}
+                value={protocol}
+                onChange={(value) => setProtocol(value as 'https://' | 'http://')}
+                disabled={isSubmitting}
+                style={{ width: '110px' }}
+                allowDeselect={false}
+              />
+              <TextInput
+                required
+                placeholder="example.com"
+                value={url}
+                onChange={(e) => setUrl(stripProtocol(e.target.value))}
+                disabled={isSubmitting}
+                style={{ flex: 1 }}
+              />
+            </Group>
+          </div>
           
           <TextInput
             label="Name (Optional)"

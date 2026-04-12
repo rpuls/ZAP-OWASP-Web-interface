@@ -10,6 +10,9 @@
                 },
     "scripts":  {
                     "dev":  "pnpm -r run dev",
+                    "local":  "node scripts/local-dev.mjs",
+                    "zap:start":  "node scripts/zap-start.mjs",
+                    "zap:stop":  "node scripts/zap-stop.mjs",
                     "build":  "pnpm run build:frontend \u0026\u0026 pnpm run build:backend",
                     "build:frontend":  "pnpm --filter frontend run build",
                     "build:backend":  "pnpm --filter backend run build",

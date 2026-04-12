@@ -16,6 +16,7 @@ import {
   createSchedule, 
   updateSchedule, 
   deleteSchedule,
+  getScheduleRunnerStatus,
   Schedule,
   ScheduleCreateInput,
   ScheduleUpdateInput
@@ -38,6 +39,12 @@ export function ScheduleList() {
   } = useQuery({
     queryKey: ['schedules'],
     queryFn: getSchedules
+  });
+
+  const { data: runnerStatus } = useQuery({
+    queryKey: ['scheduleRunnerStatus'],
+    queryFn: getScheduleRunnerStatus,
+    refetchInterval: 10000,
   });
 
   // Create schedule mutation
@@ -193,12 +200,19 @@ export function ScheduleList() {
           <Button 
             leftSection={<IconPlus size={16} />}
             onClick={handleAddNew}
+            disabled={!runnerStatus?.schedulingAvailable}
           >
             Add New Schedule
           </Button>
         </Group>
 
-        {schedules.length === 0 ? (
+        {!runnerStatus?.schedulingAvailable ? (
+          <Paper p="xl" withBorder>
+            <Text ta="center">
+              Scheduling requires a database connection and is currently unavailable in this environment.
+            </Text>
+          </Paper>
+        ) : schedules.length === 0 ? (
           <Paper p="xl" withBorder>
             <Text ta="center">No scheduled scans yet. Click "Add New Schedule" to create one.</Text>
           </Paper>
@@ -227,7 +241,7 @@ export function ScheduleList() {
           schedule={selectedSchedule}
           onSubmit={handleFormSubmit}
           onCancel={handleFormCancel}
-          isSubmitting={isCreating || isUpdating}
+          isSubmitting={isCreating || isUpdating || !runnerStatus?.schedulingAvailable}
           error={formError}
         />
       </Modal>

@@ -46,15 +46,21 @@ This template automatically launches the required [ZAP docker container](https:/
 
 ### Local Setup
 
-1. Make sure to have Docker imgae `zaproxy/zap-stable:latest` running with the following start command:
-```bash
-docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true
-```
-2. Clone the project: Launch on Railway and eject [watch how](https://www.youtube.com/watch?v=LJFek8JP8TE). Alternatively, clone this repo or fork it.
-3. Install dependencies:
+1. Clone the project: Launch on Railway and eject [watch how](https://www.youtube.com/watch?v=LJFek8JP8TE). Alternatively, clone this repo or fork it.
+2. Install dependencies:
    - `pnpm install`
-4. Rename `.env.template` to `.env` (edit if needed)
-5. Start the app `pnpm build && pnpm start` 
+3. Rename `.env.template` to `.env` (edit if needed)
+4. Start everything with one command:
+   - `pnpm local`
+
+`pnpm local` will:
+- start or create a local `zaproxy/zap-stable:latest` Docker container
+- build the app and run the existing server
+- stop the local ZAP container again when you stop the command
+
+Optional helper commands:
+- `pnpm zap:start` to start only the ZAP container
+- `pnpm zap:stop` to stop only the ZAP container
 
 ### System Requirements
 
@@ -89,8 +95,9 @@ docker run -u zap -p 8080:8080 zaproxy/zap-stable zap.sh -daemon -host 0.0.0.0 -
 
 #### Commands
 
-- `cd frontend && pnpm dev` to start the React frontend.
-- `cd backend && pnpm dev` to start the Node.js backend.
+- `pnpm local` to automate the original local flow: start Docker ZAP, build, and run the app.
+- `cd frontend && pnpm dev` to start the React frontend only.
+- `cd backend && pnpm dev` to start the Node.js backend only.
 - `pnpm build && pnpm start` to compile and run from compiled source.
 
 #### Demo sites to scan

@@ -2,6 +2,13 @@ import { PrismaClient, Schedule } from '@prisma/client';
 import { dbConnection } from './persistence/db-connection';
 import { scanService } from './scanService';
 
+export class SchedulingUnavailableError extends Error {
+  constructor(message: string = 'Scheduling requires a database connection') {
+    super(message);
+    this.name = 'SchedulingUnavailableError';
+  }
+}
+
 export interface ScheduleCreateInput {
   url: string;
   name?: string;
@@ -29,7 +36,7 @@ class ScheduleService {
   // Create a new schedule
   async createSchedule(data: ScheduleCreateInput): Promise<Schedule> {
     if (!this.isDbConnected || !this.prisma) {
-      throw new Error('Database connection required for scheduling');
+      throw new SchedulingUnavailableError();
     }
 
     // Set next run time to the same as start time
@@ -61,7 +68,7 @@ class ScheduleService {
   // Get all schedules
   async getAllSchedules(): Promise<Schedule[]> {
     if (!this.isDbConnected || !this.prisma) {
-      throw new Error('Database connection required for scheduling');
+      return [];
     }
 
     try {
@@ -77,7 +84,7 @@ class ScheduleService {
   // Get a specific schedule by ID
   async getScheduleById(id: string): Promise<Schedule | null> {
     if (!this.isDbConnected || !this.prisma) {
-      throw new Error('Database connection required for scheduling');
+      return null;
     }
 
     try {
@@ -93,7 +100,7 @@ class ScheduleService {
   // Update a schedule
   async updateSchedule(id: string, data: ScheduleUpdateInput): Promise<Schedule> {
     if (!this.isDbConnected || !this.prisma) {
-      throw new Error('Database connection required for scheduling');
+      throw new SchedulingUnavailableError();
     }
 
     // Get the current schedule
@@ -152,7 +159,7 @@ class ScheduleService {
   // Delete a schedule
   async deleteSchedule(id: string): Promise<void> {
     if (!this.isDbConnected || !this.prisma) {
-      throw new Error('Database connection required for scheduling');
+      throw new SchedulingUnavailableError();
     }
 
     try {

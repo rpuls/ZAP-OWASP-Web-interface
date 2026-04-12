@@ -1,9 +1,27 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
-import { scheduleService, ScheduleCreateInput, ScheduleUpdateInput } from '../services/scheduleService';
+import {
+  scheduleService,
+  ScheduleCreateInput,
+  ScheduleUpdateInput,
+  SchedulingUnavailableError,
+} from '../services/scheduleService';
 import { scheduleRunnerService } from '../services/scheduleRunnerService';
 
 const router = Router();
+
+const getSingleParam = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
+const normalizeUrl = (url: string): string => {
+  const trimmedUrl = url.trim();
+
+  if (trimmedUrl.match(/^https?:\/\//i)) {
+    return trimmedUrl;
+  }
+
+  return `https://${trimmedUrl}`;
+};
 
 // Input validation schemas
 const ScheduleCreateSchema = z.object({
@@ -58,7 +76,12 @@ router.post('/runner/check', async (_req: Request, res: Response) => {
 // GET /api/v1/schedules/:id - Get a specific schedule
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const schedule = await scheduleService.getScheduleById(req.params.id);
+    const scheduleId = getSingleParam(req.params.id);
+    if (!scheduleId) {
+      return res.status(400).json({ error: 'Missing schedule id' });
+    }
+
+    const schedule = await scheduleService.getScheduleById(scheduleId);
     if (!schedule) {
       return res.status(404).json({ error: 'Schedule not found' });
     }
@@ -74,7 +97,10 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/v1/schedules - Create a new schedule
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const validatedData = ScheduleCreateSchema.parse(req.body);
+    const validatedData = ScheduleCreateSchema.parse({
+      ...req.body,
+      url: normalizeUrl(req.body.url),
+    });
     
     const schedule = await scheduleService.createSchedule(validatedData as ScheduleCreateInput);
     res.status(201).json(schedule);
@@ -85,6 +111,12 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ 
         error: 'Invalid input data',
         details: error.errors 
+      });
+    }
+
+    if (error instanceof SchedulingUnavailableError) {
+      return res.status(503).json({
+        error: error.message
       });
     }
     
@@ -105,10 +137,18 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT /api/v1/schedules/:id - Update a schedule
 router.put('/:id', async (req: Request, res: Response) => {
   try {
-    const validatedData = ScheduleUpdateSchema.parse(req.body);
+    const scheduleId = getSingleParam(req.params.id);
+    if (!scheduleId) {
+      return res.status(400).json({ error: 'Missing schedule id' });
+    }
+
+    const validatedData = ScheduleUpdateSchema.parse({
+      ...req.body,
+      url: req.body.url ? normalizeUrl(req.body.url) : req.body.url,
+    });
     
     const schedule = await scheduleService.updateSchedule(
-      req.params.id, 
+      scheduleId,
       validatedData as ScheduleUpdateInput
     );
     
@@ -120,6 +160,12 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ 
         error: 'Invalid input data',
         details: error.errors 
+      });
+    }
+
+    if (error instanceof SchedulingUnavailableError) {
+      return res.status(503).json({
+        error: error.message
       });
     }
     
@@ -145,10 +191,21 @@ router.put('/:id', async (req: Request, res: Response) => {
 // DELETE /api/v1/schedules/:id - Delete a schedule
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    await scheduleService.deleteSchedule(req.params.id);
+    const scheduleId = getSingleParam(req.params.id);
+    if (!scheduleId) {
+      return res.status(400).json({ error: 'Missing schedule id' });
+    }
+
+    await scheduleService.deleteSchedule(scheduleId);
     res.status(204).send();
   } catch (error) {
     console.error(`Failed to delete schedule ${req.params.id}:`, error);
+
+    if (error instanceof SchedulingUnavailableError) {
+      return res.status(503).json({
+        error: error.message
+      });
+    }
     
     if (error instanceof Error && error.message === 'Schedule not found') {
       return res.status(404).json({ error: 'Schedule not found' });

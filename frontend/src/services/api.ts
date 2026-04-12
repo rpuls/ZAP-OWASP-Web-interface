@@ -77,6 +77,12 @@ export interface SchedulesResponse {
   schedules: Schedule[];
 }
 
+export interface ScheduleRunnerStatus {
+  schedulingAvailable: boolean;
+  isRunning: boolean;
+  checkIntervalMs: number;
+}
+
 export async function startScan(url: string): Promise<ScanResponse> {
   const response = await axios.post(`${API_URL}/scans`, { url });
   return response.data;
@@ -223,4 +229,9 @@ export async function updateSchedule(id: string, data: ScheduleUpdateInput): Pro
 
 export async function deleteSchedule(id: string): Promise<void> {
   await axios.delete(`${API_URL}/schedules/${id}`);
+}
+
+export async function getScheduleRunnerStatus(): Promise<ScheduleRunnerStatus> {
+  const response = await axios.get(`${API_URL}/schedules/runner/status`);
+  return response.data;
 }
