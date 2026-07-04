@@ -17,8 +17,8 @@
     "@mantine/hooks": "^7.17.8",
     "@tabler/icons-react": "^3.29.0",
     "@tanstack/react-query": "^5.17.19",
-    "axios": "^1.15.0",
-    "esbuild": "^0.28.0",
+    "axios": "^1.18.1",
+    "esbuild": "^0.28.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
@@ -26,15 +26,15 @@
     "@eslint/js": "^10.0.1",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
-    "@typescript-eslint/eslint-plugin": "^8.58.1",
-    "@typescript-eslint/parser": "^8.58.1",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^10.2.0",
-    "eslint-plugin-react-hooks": "^7.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.62.1",
+    "@typescript-eslint/parser": "^8.62.1",
+    "@vitejs/plugin-react": "^6.0.3",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.58.1",
-    "vite": "^8.0.8"
+    "typescript-eslint": "^8.62.1",
+    "vite": "^8.0.16"
   }
 }
